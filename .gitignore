@@ -1,0 +1,5 @@
+# Maven output directory
+/target
+
+# BFT-SMaRt config location.
+/config
