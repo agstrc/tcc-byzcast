@@ -89,7 +89,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>dev.agst.Main</mainClass>
+                            <mainClass>dev.agst.byzcast.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -105,6 +105,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.0.0</version> <!-- Use the latest version available -->
+                <configuration>
+                    <mainClass>dev.agst.byzcast.Main</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>
