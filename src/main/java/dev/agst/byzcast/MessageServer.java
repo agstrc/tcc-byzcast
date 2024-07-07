@@ -57,7 +57,7 @@ public class MessageServer extends DefaultRecoverable {
             message = Message.fromBytes(command);
         } catch (ClassNotFoundException | InvalidMessageException e) {
             logger.severe("Error deserializing message: " + e.getMessage());
-            return responseMaker.makeResponse("INVALID_MESSAGE".getBytes());
+            return responseMaker.makeResponse("INVALID_MESSAGE");
         }
 
         logger.info("Received message: " + message.id);
@@ -68,7 +68,7 @@ public class MessageServer extends DefaultRecoverable {
             var nextGroup = groupsConfig.getNextGroup(groupID, message.groupID);
             if (nextGroup == null) {
                 logger.warning("No path to group " + message.groupID);
-                return responseMaker.makeResponse("NO_PATH".getBytes());
+                return responseMaker.makeResponse("NO_PATH");
             }
 
             var nextGroupProxy = groupProxies.get(nextGroup);
@@ -77,17 +77,18 @@ public class MessageServer extends DefaultRecoverable {
                 return "NO_PROXY".getBytes();
             }
 
-            return responseMaker.makeResponse(nextGroupProxy.invokeOrdered(command));
+            var response = nextGroupProxy.invokeOrdered(command);
+            return responseMaker.wrapResponse(response);
         }
 
         messageSet.add(message);
-        return responseMaker.makeResponse("OK".getBytes());
+        return responseMaker.makeResponse("OK");
     }
 
     @Override
     public byte[] appExecuteUnordered(byte[] cmd, MessageContext ctx) {
         logger.warning("Received non supported unordered request. Ignoring.");
-        return responseMaker.makeResponse("UNSUPPORTED".getBytes());
+        return responseMaker.makeResponse("UNSUPPORTED");
     }
 
     @Override
