@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "groupID": 1,
+    "associatedGroups": [2, 3]
+  },
+  {
+    "groupID": 2,
+    "associatedGroups": [1]
+  }
+]

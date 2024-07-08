@@ -5,11 +5,8 @@ from py.lib import Host
 # as many hosts as possible per group.
 
 hosts = [
-    Host(external="apt156.apt.emulab.net", internal="10.10.1.1"),
-    Host(external="apt148.apt.emulab.net", internal="10.10.1.2"),
-    # Host(external="apt173.apt.emulab.net", internal="10.1.1.3"),
-    # Host(external="apt179.apt.emulab.net", internal="10.1.1.4"),
-    # Host(external="apt192.apt.emulab.net", internal="10.1.1.5"),
+    Host(external="example.com", internal="10.10.1.1"),
+    Host(external="example2.com", internal="10.10.1.2")
 ]
 num_groups = 4
 group_size = 4
