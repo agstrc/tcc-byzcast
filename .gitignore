@@ -4,6 +4,6 @@
 # BFT-SMaRt config location.
 /config
 
-/infra/configs
+# Ansible related
 /infra/dist
 __pycache__

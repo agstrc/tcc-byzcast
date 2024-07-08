@@ -2,7 +2,7 @@
   hosts: localhost
   tasks:
     - name: Generate distribution
-      ansible.builtin.command: python scripts/distribute.py
+      ansible.builtin.command: python py/distribute.py
       changed_when: true
 
 - name: Install byzcast on remote hosts
@@ -33,5 +33,5 @@
 
     - name: Run byzcast
       changed_when: true
-      execbyzcast:
+      startbyzcast:
         gs: "{{ params }}"
