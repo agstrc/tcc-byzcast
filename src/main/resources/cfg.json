@@ -5,10 +5,14 @@
   },
   {
     "groupID": 2,
-    "associatedGroups": []
+    "associatedGroups": [4]
   },
   {
     "groupID": 3,
+    "associatedGroups": []
+  },
+  {
+    "groupID": 4,
     "associatedGroups": []
   }
 ]

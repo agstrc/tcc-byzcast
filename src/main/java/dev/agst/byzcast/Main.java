@@ -9,6 +9,7 @@ import dev.agst.byzcast.exceptions.InvalidConfigException;
 import dev.agst.byzcast.groups.GroupsConfigLoader;
 import dev.agst.byzcast.utils.ConfigHomeFinder;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 @Command(name = "Main", mixinStandardHelpOptions = true)
@@ -16,14 +17,16 @@ public class Main {
 
     @Command(name = "server", description = "Starts the server.")
     void server(
-            @Parameters(description = "The server ID", type = Integer.class) Integer serverID,
-            @Parameters(description = "The group ID", type = Integer.class) Integer groupID)
+            @Option(names = {
+                    "--server-id" }, description = "The server ID", type = Integer.class, required = true) Integer serverID,
+            @Option(names = {
+                    "--group-id" }, description = "The group ID", type = Integer.class, required = true) Integer groupID)
             throws IOException, InvalidConfigException {
 
-        var configHomeFinder = new ConfigHomeFinder("/workspaces/byzcast-tcc/config");
+        var configHomeFinder = new ConfigHomeFinder("byzcast/configs");
 
         var loader = new GroupsConfigLoader();
-        var groupsConfig = loader.loadFromJson("/workspaces/byzcast-tcc/src/main/resources/cfg.json");
+        var groupsConfig = loader.loadFromJson("byzcast/config.json");
         var messageServer = new MessageServer(groupID, groupsConfig, configHomeFinder);
 
         new ServiceReplica(serverID, configHomeFinder.forGroup(groupID), messageServer, messageServer, null,
@@ -57,5 +60,4 @@ public class Main {
         int exitCode = new picocli.CommandLine(new Main()).execute(args);
         System.exit(exitCode);
     }
-
 }

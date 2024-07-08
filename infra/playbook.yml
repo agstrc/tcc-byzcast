@@ -1,0 +1,53 @@
+- name: Generate dist
+  hosts: localhost
+  tasks:
+    - name: Generate distribution
+      ansible.builtin.command: python scripts/distribute.py
+      changed_when: true
+
+- name: Install byzcast on remote hosts
+  hosts: remote_hosts
+  vars:
+    dist_dir: "dist"
+    remote_dest_dir: "byzcast"
+    ansible_user: "agst"
+  tasks:
+    - name: Say hello with execbyzcast
+      execbyzcast:
+        name: "Ansible User"
+
+    # - name: Sync dist folder
+    #   ansible.posix.synchronize:
+    #     src: "{{ dist_dir }}/"
+    #     dest: "{{ remote_dest_dir }}/"
+    #     delete: true
+
+    # - name: Ensure Java 21 is installed
+    #   ansible.builtin.apt:
+    #     name: openjdk-21-jdk
+    #     state: present
+    #     update_cache: true
+    #   become: true
+
+    # - name: Kill existing byzcast processes
+    #   changed_when: true
+    #   ansible.builtin.shell: |
+    #     kill $(pidof java) || true
+    #   become: true
+
+    # - name: Run byzcast
+    #   changed_when: true
+    #   ansible.builtin.shell: |
+    #     for param in {{ params }}; do
+    #       IFS=',' read -ra param_array <<< "$param"
+
+    #       # Assign the server ID and group ID to variables
+    #       server_id="${param_array[0]}"
+    #       group_id="${param_array[1]}"
+
+    #       nohup java -jar byzcast/byzcast-tcc.jar server --server-id "$server_id" \
+    #           --group-id "$group_id" &> "g${group_id}_s${server_id}.log" &
+    #       disown
+    #     done
+    #   args:
+    #     executable: /bin/bash

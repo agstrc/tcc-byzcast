@@ -3,3 +3,7 @@
 
 # BFT-SMaRt config location.
 /config
+
+/infra/configs
+/infra/dist
+__pycache__
