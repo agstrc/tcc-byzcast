@@ -1,5 +1,11 @@
 package dev.agst.byzcast;
 
+import bftsmart.tom.MessageContext;
+import bftsmart.tom.ServiceProxy;
+import bftsmart.tom.server.defaultservices.DefaultRecoverable;
+import dev.agst.byzcast.exceptions.InvalidMessageException;
+import dev.agst.byzcast.groups.GroupsConfig;
+import dev.agst.byzcast.utils.ConfigHomeFinder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -11,119 +17,116 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.logging.Logger;
 
-import bftsmart.tom.MessageContext;
-import bftsmart.tom.ServiceProxy;
-import bftsmart.tom.server.defaultservices.DefaultRecoverable;
-import dev.agst.byzcast.exceptions.InvalidMessageException;
-import dev.agst.byzcast.groups.GroupsConfig;
-import dev.agst.byzcast.utils.ConfigHomeFinder;
-
 public class MessageServer extends DefaultRecoverable {
-    private HashSet<Message> messageSet = new HashSet<>();
-    private Logger logger;
+  private HashSet<Message> messageSet = new HashSet<>();
+  private Logger logger;
 
-    private int groupID;
+  private int groupID;
 
-    private GroupsConfig groupsConfig;
-    private HashMap<Integer, ServiceProxy> groupProxies;
+  private GroupsConfig groupsConfig;
+  private HashMap<Integer, ServiceProxy> groupProxies;
 
-    private ResponseMaker responseMaker;
+  private ResponseMaker responseMaker;
 
-    MessageServer(int groupID, GroupsConfig groupsConfig, ConfigHomeFinder configHomeFinder) {
-        this.logger = Logger.getLogger(String.format("Group %d - %s", groupID, MessageServer.class.getName()));
+  MessageServer(int groupID, GroupsConfig groupsConfig, ConfigHomeFinder configHomeFinder) {
+    this.logger =
+        Logger.getLogger(String.format("Group %d - %s", groupID, MessageServer.class.getName()));
 
-        this.groupID = groupID;
-        this.groupsConfig = groupsConfig;
+    this.groupID = groupID;
+    this.groupsConfig = groupsConfig;
 
-        responseMaker = new ResponseMaker(groupID);
+    responseMaker = new ResponseMaker(groupID);
 
-        this.groupProxies = new HashMap<>();
-        var random = new Random();
-        groupsConfig.getAssociatedGroups(groupID).forEach(associatedGroup -> {
-            var cfgHome = configHomeFinder.forGroup(associatedGroup);
-            groupProxies.put(associatedGroup, new ServiceProxy(random.nextInt(Integer.MAX_VALUE), cfgHome));
-        });
+    this.groupProxies = new HashMap<>();
+    var random = new Random();
+    groupsConfig
+        .getAssociatedGroups(groupID)
+        .forEach(
+            associatedGroup -> {
+              var cfgHome = configHomeFinder.forGroup(associatedGroup);
+              groupProxies.put(
+                  associatedGroup, new ServiceProxy(random.nextInt(Integer.MAX_VALUE), cfgHome));
+            });
+  }
+
+  @Override
+  public byte[][] appExecuteBatch(byte[][] commands, MessageContext[] contexts) {
+    return Arrays.stream(commands).map(this::executeCommand).toArray(byte[][]::new);
+  }
+
+  private byte[] executeCommand(byte[] command) {
+    Message message;
+
+    try {
+      message = Message.fromBytes(command);
+    } catch (ClassNotFoundException | InvalidMessageException e) {
+      logger.severe("Error deserializing message: " + e.getMessage());
+      return responseMaker.makeResponse("INVALID_MESSAGE");
     }
 
-    @Override
-    public byte[][] appExecuteBatch(byte[][] commands, MessageContext[] contexts) {
-        return Arrays.stream(commands).map(this::executeCommand).toArray(byte[][]::new);
+    logger.info("Received message: " + message.id);
+
+    if (message.groupID != groupID) {
+      logger.info("Received message for group " + message.groupID);
+
+      var nextGroup = groupsConfig.getNextGroup(groupID, message.groupID);
+      if (nextGroup == null) {
+        logger.warning("No path to group " + message.groupID);
+        return responseMaker.makeResponse("NO_PATH");
+      }
+
+      var nextGroupProxy = groupProxies.get(nextGroup);
+      if (nextGroupProxy == null) {
+        logger.severe("No proxy for group " + nextGroup);
+        return "NO_PROXY".getBytes();
+      }
+
+      var response = nextGroupProxy.invokeOrdered(command);
+      return responseMaker.wrapResponse(response);
     }
 
-    private byte[] executeCommand(byte[] command) {
-        Message message;
+    messageSet.add(message);
+    return responseMaker.makeResponse("OK");
+  }
 
-        try {
-            message = Message.fromBytes(command);
-        } catch (ClassNotFoundException | InvalidMessageException e) {
-            logger.severe("Error deserializing message: " + e.getMessage());
-            return responseMaker.makeResponse("INVALID_MESSAGE");
-        }
+  @Override
+  public byte[] appExecuteUnordered(byte[] cmd, MessageContext ctx) {
+    logger.warning("Received non supported unordered request. Ignoring.");
+    return responseMaker.makeResponse("UNSUPPORTED");
+  }
 
-        logger.info("Received message: " + message.id);
-
-        if (message.groupID != groupID) {
-            logger.info("Received message for group " + message.groupID);
-
-            var nextGroup = groupsConfig.getNextGroup(groupID, message.groupID);
-            if (nextGroup == null) {
-                logger.warning("No path to group " + message.groupID);
-                return responseMaker.makeResponse("NO_PATH");
-            }
-
-            var nextGroupProxy = groupProxies.get(nextGroup);
-            if (nextGroupProxy == null) {
-                logger.severe("No proxy for group " + nextGroup);
-                return "NO_PROXY".getBytes();
-            }
-
-            var response = nextGroupProxy.invokeOrdered(command);
-            return responseMaker.wrapResponse(response);
-        }
-
-        messageSet.add(message);
-        return responseMaker.makeResponse("OK");
+  @Override
+  public byte[] getSnapshot() {
+    try {
+      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+      ObjectOutputStream out = new ObjectOutputStream(bos);
+      out.writeObject(messageSet);
+      out.flush();
+      return bos.toByteArray();
+    } catch (IOException e) {
+      logger.severe("Error serializing message set: " + e.getMessage());
+      throw new RuntimeException(e);
     }
+  }
 
-    @Override
-    public byte[] appExecuteUnordered(byte[] cmd, MessageContext ctx) {
-        logger.warning("Received non supported unordered request. Ignoring.");
-        return responseMaker.makeResponse("UNSUPPORTED");
+  @SuppressWarnings("unchecked")
+  @Override
+  public void installSnapshot(byte[] state) {
+    try {
+      ByteArrayInputStream bis = new ByteArrayInputStream(state);
+      ObjectInputStream ois = new ObjectInputStream(bis);
+
+      Object obj = ois.readObject();
+      if (obj instanceof HashSet) {
+        messageSet = (HashSet<Message>) obj;
+      } else {
+        throw new ClassNotFoundException(
+            "Object " + obj.getClass().getName() + " is not an instance of HashSet<Message>");
+      }
+
+    } catch (IOException | ClassNotFoundException e) {
+      logger.severe("Error deserializing message set: " + e.getMessage());
+      throw new RuntimeException(e);
     }
-
-    @Override
-    public byte[] getSnapshot() {
-        try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutputStream out = new ObjectOutputStream(bos);
-            out.writeObject(messageSet);
-            out.flush();
-            return bos.toByteArray();
-        } catch (IOException e) {
-            logger.severe("Error serializing message set: " + e.getMessage());
-            throw new RuntimeException(e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public void installSnapshot(byte[] state) {
-        try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(state);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-
-            Object obj = ois.readObject();
-            if (obj instanceof HashSet) {
-                messageSet = (HashSet<Message>) obj;
-            } else {
-                throw new ClassNotFoundException(
-                        "Object " + obj.getClass().getName() + " is not an instance of HashSet<Message>");
-            }
-
-        } catch (IOException | ClassNotFoundException e) {
-            logger.severe("Error deserializing message set: " + e.getMessage());
-            throw new RuntimeException(e);
-        }
-    }
-
+  }
 }

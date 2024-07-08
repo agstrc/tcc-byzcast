@@ -3,35 +3,35 @@ package dev.agst.byzcast.utils;
 import java.nio.file.Paths;
 
 /**
- * The ConfigHomeFinder class is responsible for finding the configuration home directory
- * for a given group ID.
+ * The ConfigHomeFinder class is responsible for finding the configuration home directory for a
+ * given group ID.
  */
 public class ConfigHomeFinder {
-    private final String basePath;
+  private final String basePath;
 
-    /**
-     * Constructs a ConfigHomeFinder object with the specified base path.
-     *
-     * @param basePath the base path for the configuration home directory
-     */
-    public ConfigHomeFinder(String basePath) {
-        this.basePath = basePath;
+  /**
+   * Constructs a ConfigHomeFinder object with the specified base path.
+   *
+   * @param basePath the base path for the configuration home directory
+   */
+  public ConfigHomeFinder(String basePath) {
+    this.basePath = basePath;
+  }
+
+  /**
+   * Returns the configuration home directory path for the specified group ID.
+   *
+   * @param groupID the group ID
+   * @return the configuration home directory path
+   */
+  public String forGroup(int groupID) {
+    String groupSuffix;
+    if (groupID < 10) {
+      groupSuffix = "g0" + groupID;
+    } else {
+      groupSuffix = "g" + groupID;
     }
 
-    /**
-     * Returns the configuration home directory path for the specified group ID.
-     *
-     * @param groupID the group ID
-     * @return the configuration home directory path
-     */
-    public String forGroup(int groupID) {
-        String groupSuffix;
-        if (groupID < 10) {
-            groupSuffix = "g0" + groupID;
-        } else {
-            groupSuffix = "g" + groupID;
-        }
-
-        return Paths.get(basePath, groupSuffix).toString();
-    }
+    return Paths.get(basePath, groupSuffix).toString();
+  }
 }
