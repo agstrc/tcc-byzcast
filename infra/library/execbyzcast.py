@@ -1,43 +1,10 @@
-import shutil
+import datetime
 import os
+import re
+import shutil
 import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
-
-# DOCUMENTATION = """
-# ---
-# module: execbyzcast
-# short_description: A simple Ansible module that prints a greeting message.
-# description:
-#     - This module takes a parameter 'gs' and prints a greeting message using the value of 'gs'.
-# options:
-#     gs:
-#         description:
-#             - The value of gs parameter.
-#         required: true
-# author:
-#     - Your Name
-# """
-
-
-# def hello_world_module():
-#     module = AnsibleModule(
-#         argument_spec=dict(
-#             gs=dict(
-#                 type="str", required=True, documentation="The value of gs parameter."
-#             )
-#         ),
-#         supports_check_mode=True,
-#     )
-
-#     gs = module.params["gs"]
-#     message = f"Hello, {gs}!"
-
-#     module.exit_json(changed=False, message=message)
-
-
-# if __name__ == "__main__":
-#     hello_world_module()
 
 
 def execbyzcast():
@@ -52,6 +19,17 @@ def execbyzcast():
     gs: str = module.params["gs"]
     pairs = gs.split(" ")
 
+    log_file_pattern = re.compile(r"g\d+_s\d+\.log")
+    log_files = [file for file in os.listdir() if log_file_pattern.match(file)]
+
+    for log_file in log_files:
+        creation_time = os.path.getctime(log_file)
+        creation_date = datetime.datetime.fromtimestamp(creation_time).strftime(
+            "%Y-%m-%d"
+        )
+        new_name = f"{creation_date}_{log_file}"
+        os.rename(log_file, new_name)
+
     java_path = shutil.which("java")
     if java_path is None:
         module.fail_json(msg="Java is not installed on the system.")
@@ -61,7 +39,6 @@ def execbyzcast():
         server_id, group_id = pair.split(",")
 
         log_file = open(f"g{group_id}_s{server_id}.log", "w")
-        # subprocess.Popen(java_path)
 
         subprocess.Popen(
             [
@@ -75,4 +52,11 @@ def execbyzcast():
             ],
             stdout=log_file,
             stderr=log_file,
+            preexec_fn=os.setsid,
         )
+
+    module.exit_json(changed=True)
+
+
+if __name__ == "__main__":
+    execbyzcast()
