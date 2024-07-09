@@ -5,7 +5,6 @@ import bftsmart.tom.server.defaultservices.DefaultRecoverable;
 import dev.agst.byzcast.message.MessageDeserializationException;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
@@ -65,7 +64,7 @@ public class Node extends DefaultRecoverable {
       var arrayStream = new ByteArrayOutputStream();
       var objectStream = new ObjectOutputStream(arrayStream);
 
-      objectStream.writeObject(this);
+      objectStream.writeObject(this.handledRequests);
       objectStream.flush();
       return arrayStream.toByteArray();
     } catch (Exception e) {
@@ -80,9 +79,11 @@ public class Node extends DefaultRecoverable {
       var arrayStream = new ByteArrayInputStream(state);
       var objectStream = new ObjectInputStream(arrayStream);
 
-      var snapshot = (Node) objectStream.readObject();
+      @SuppressWarnings("unchecked")
+      var snapshot = (ArrayList<Request>) objectStream.readObject();
+
       this.handledRequests.clear();
-      this.handledRequests.addAll(snapshot.handledRequests);
+      this.handledRequests.addAll(snapshot);
     } catch (Exception e) {
       logger.log(Logger.Level.ERROR, "Error installing snapshot: " + e.getMessage());
       throw new RuntimeException(e);
