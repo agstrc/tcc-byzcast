@@ -79,14 +79,23 @@ def main():
                 detail=e,
             )
 
+    # I'd like to set file and dir names constants within the distribute script in order
+    # to reference them here, but this module runs by itself in the remote machines, so
+    # it doesn't have access to the distribute script.
+
+    base_dir = Path("byzcast")
+
     now = datetime.now()
-    log_dir = Path("byzcast").joinpath(f"{now.isoformat()}.logs")
+    # The Ansible playbook clears the directory before running this module, through
+    # rsync, so the logs must stay in a separate directory.
+    log_dir = Path("byzcast-logs").joinpath(f"{now.isoformat()}.logs")
     os.makedirs(log_dir, exist_ok=True)
 
-    symlink_path = Path("byzcast").joinpath("latest.logs")
+    # The symlinks makes it easier to access the logs of the last aexecution
+    symlink_path = base_dir.joinpath("latest.logs")
     if symlink_path.exists():
         symlink_path.unlink()
-    symlink_path.symlink_to(log_dir)
+    symlink_path.symlink_to(log_dir.resolve())
 
     for host_var in true_host_vars:
         server_id, group_id = host_var.server_id, host_var.group_id
@@ -100,16 +109,16 @@ def main():
             [
                 java_path,
                 "-jar",
-                "byzcast/byzcast-tcc.jar",
+                str(base_dir.joinpath("byzcast-tcc.jar")),
                 "--configs-home",
-                "byzcast/configs",
+                str(base_dir.joinpath("configs")),
                 "server",
                 "--server-id",
                 str(server_id),
                 "--group-id",
                 str(group_id),
                 "--groups-map-file",
-                "byzcast/config.json",
+                str(base_dir.joinpath("config.json")),
             ],
             stdout=log_file,
             stderr=log_file,
