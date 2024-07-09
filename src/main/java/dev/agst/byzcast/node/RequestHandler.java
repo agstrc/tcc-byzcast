@@ -1,5 +1,6 @@
 package dev.agst.byzcast.node;
 
+import dev.agst.byzcast.group.GroupMap;
 import dev.agst.byzcast.group.GroupProxyRetriever;
 import dev.agst.byzcast.message.MessageDeserializationException;
 import dev.agst.byzcast.message.Request;
@@ -7,9 +8,10 @@ import dev.agst.byzcast.message.Response;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 
-class RequestHandler {
+public class RequestHandler {
   private final Logger logger = System.getLogger(RequestHandler.class.getName());
 
+  private final GroupMap groupMap;
   private final int groupID;
 
   public int getGroupID() {
@@ -18,8 +20,9 @@ class RequestHandler {
 
   private final GroupProxyRetriever proxyRetriever;
 
-  public RequestHandler(int groupID, GroupProxyRetriever proxyRetriever) {
+  public RequestHandler(int groupID, GroupMap groupMap, GroupProxyRetriever proxyRetriever) {
     this.groupID = groupID;
+    this.groupMap = groupMap;
     this.proxyRetriever = proxyRetriever;
   }
 
@@ -30,7 +33,13 @@ class RequestHandler {
       logger.log(Level.INFO, "Request is for group " + request.getTargetGroupID());
       logger.log(Level.DEBUG, "My group ID is " + this.groupID);
 
-      var proxy = this.proxyRetriever.forGroup(request.getTargetGroupID());
+      var nextGroup = this.groupMap.nextGroup(this.groupID, request.getTargetGroupID());
+      if (nextGroup.isEmpty()) {
+        var response = new Response("NO_ROUTE", this.groupID);
+        return response;
+      }
+
+      var proxy = this.proxyRetriever.forGroup(nextGroup.get());
       var responseBytes = proxy.invokeOrdered(request.toBytes());
 
       Response response;
