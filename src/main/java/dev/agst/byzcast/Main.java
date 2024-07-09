@@ -2,6 +2,7 @@ package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
 import bftsmart.tom.server.defaultservices.DefaultReplier;
+import dev.agst.byzcast.client.InteractiveClient;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupMap;
 import dev.agst.byzcast.group.GroupProxyRetriever;
@@ -58,6 +59,15 @@ public class Main {
         throw new RuntimeException(e);
       }
     }
+  }
+
+  @Command(name = "client", description = "Starts the client.")
+  void client() {
+    var configFinder = new GroupConfigFinder(configsPath);
+    var proxyRetriever = new GroupProxyRetriever(configFinder);
+    var client = new InteractiveClient(proxyRetriever);
+
+    client.run();
   }
 
   public static void main(String[] args) {
