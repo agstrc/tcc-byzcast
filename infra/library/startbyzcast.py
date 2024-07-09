@@ -80,13 +80,18 @@ def main():
             )
 
     now = datetime.now()
-    log_dir = Path(f"{now.isoformat()}.logs")
+    log_dir = Path("byzcast").joinpath(f"{now.isoformat()}.logs")
     os.makedirs(log_dir, exist_ok=True)
+
+    symlink_path = Path("byzcast").joinpath("latest.logs")
+    if symlink_path.exists():
+        symlink_path.unlink()
+    symlink_path.symlink_to(log_dir)
 
     for host_var in true_host_vars:
         server_id, group_id = host_var.server_id, host_var.group_id
 
-        log_file_path = Path.joinpath(log_dir, "g{group_id}_s{server_id}.log")
+        log_file_path = Path.joinpath(log_dir, f"g{group_id}_s{server_id}.log")
         log_file = open(log_file_path, "w")
 
         # We start each server in a separate process and detach them from the Python
@@ -95,11 +100,16 @@ def main():
             [
                 java_path,
                 "-jar",
-                "byzcast/byzcast-tcc-1.0-SNAPSHOT-jar-with-dependencies.jar",
+                "byzcast/byzcast-tcc.jar",
+                "--configs-home",
+                "byzcast/configs",
+                "server",
                 "--server-id",
                 str(server_id),
                 "--group-id",
                 str(group_id),
+                "--groups-map-file",
+                "byzcast/config.json",
             ],
             stdout=log_file,
             stderr=log_file,

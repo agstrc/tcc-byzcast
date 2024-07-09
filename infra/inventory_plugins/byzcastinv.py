@@ -6,7 +6,8 @@ from base64 import b64encode
 
 from ansible.plugins.inventory import BaseInventoryPlugin
 
-# There certainly is a better way to do this
+# There certainly is a better way to do this, but ATM I could not find a way to predict
+# the PYTHONPATH whenever the plugin is executed.
 infra_dir = Path(__file__).resolve().parents[1]
 sys.path.append(str(infra_dir))
 

@@ -3,15 +3,22 @@ package dev.agst.byzcast;
 import bftsmart.tom.ServiceReplica;
 import bftsmart.tom.server.defaultservices.DefaultReplier;
 import dev.agst.byzcast.exceptions.InvalidConfigException;
+import dev.agst.byzcast.groups.GroupConfigHomeFinder;
+import dev.agst.byzcast.groups.GroupProxyRetriever;
 import dev.agst.byzcast.groups.GroupsConfigLoader;
-import dev.agst.byzcast.utils.ConfigHomeFinder;
+
 import java.io.IOException;
-import java.util.Scanner;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 @Command(name = "Main", mixinStandardHelpOptions = true)
 public class Main {
+
+  @Option(
+      names = {"--configs-home"},
+      description = "The path to the directory containing all group configurations",
+      required = true)
+  String configsPath;
 
   @Command(name = "server", description = "Starts the server.")
   void server(
@@ -26,13 +33,19 @@ public class Main {
               description = "The group ID",
               type = Integer.class,
               required = true)
-          Integer groupID)
+          Integer groupID,
+      @Option(
+              names = {"--groups-map-file"},
+              description =
+                  "The file path to the JSON containing the description of group connections",
+              required = true)
+          String groupsMapFilePath)
       throws IOException, InvalidConfigException {
 
-    var configHomeFinder = new ConfigHomeFinder("byzcast/configs");
+    var configHomeFinder = new GroupConfigHomeFinder(configsPath);
 
     var loader = new GroupsConfigLoader();
-    var groupsConfig = loader.loadFromJson("byzcast/config.json");
+    var groupsConfig = loader.loadFromJson(groupsMapFilePath);
     var messageServer = new MessageServer(groupID, groupsConfig, configHomeFinder);
 
     new ServiceReplica(
@@ -55,16 +68,10 @@ public class Main {
 
   @Command(name = "client", description = "Starts the client.")
   void client() {
-    var messageClient = new MessageClient();
-    System.out.print("$: ");
+    var retriever = new GroupProxyRetriever(new GroupConfigHomeFinder(configsPath));
+    var client = new InteractiveMessageClient(retriever);
 
-    var scanner = new Scanner(System.in);
-    String input = scanner.nextLine();
-
-    var data = input.split("\s");
-
-    messageClient.send(new Message(data[1], Integer.parseInt(data[0])));
-    scanner.close();
+    client.sendLoop();
   }
 
   public static void main(String[] args) {

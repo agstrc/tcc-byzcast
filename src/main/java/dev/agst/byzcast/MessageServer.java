@@ -1,20 +1,18 @@
 package dev.agst.byzcast;
 
 import bftsmart.tom.MessageContext;
-import bftsmart.tom.ServiceProxy;
 import bftsmart.tom.server.defaultservices.DefaultRecoverable;
 import dev.agst.byzcast.exceptions.InvalidMessageException;
+import dev.agst.byzcast.groups.GroupConfigHomeFinder;
+import dev.agst.byzcast.groups.GroupProxyRetriever;
 import dev.agst.byzcast.groups.GroupsConfig;
-import dev.agst.byzcast.utils.ConfigHomeFinder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.logging.Logger;
 
 public class MessageServer extends DefaultRecoverable {
@@ -24,11 +22,11 @@ public class MessageServer extends DefaultRecoverable {
   private int groupID;
 
   private GroupsConfig groupsConfig;
-  private HashMap<Integer, ServiceProxy> groupProxies;
+  private GroupProxyRetriever proxyRetriever;
 
   private ResponseMaker responseMaker;
 
-  MessageServer(int groupID, GroupsConfig groupsConfig, ConfigHomeFinder configHomeFinder) {
+  MessageServer(int groupID, GroupsConfig groupsConfig, GroupConfigHomeFinder configHomeFinder) {
     this.logger =
         Logger.getLogger(String.format("Group %d - %s", groupID, MessageServer.class.getName()));
 
@@ -37,16 +35,7 @@ public class MessageServer extends DefaultRecoverable {
 
     responseMaker = new ResponseMaker(groupID);
 
-    this.groupProxies = new HashMap<>();
-    var random = new Random();
-    groupsConfig
-        .getAssociatedGroups(groupID)
-        .forEach(
-            associatedGroup -> {
-              var cfgHome = configHomeFinder.forGroup(associatedGroup);
-              groupProxies.put(
-                  associatedGroup, new ServiceProxy(random.nextInt(Integer.MAX_VALUE), cfgHome));
-            });
+    this.proxyRetriever = new GroupProxyRetriever(configHomeFinder);
   }
 
   @Override
@@ -75,7 +64,7 @@ public class MessageServer extends DefaultRecoverable {
         return responseMaker.makeResponse("NO_PATH");
       }
 
-      var nextGroupProxy = groupProxies.get(nextGroup);
+      var nextGroupProxy = proxyRetriever.getProxyForGroup(nextGroup);
       if (nextGroupProxy == null) {
         logger.severe("No proxy for group " + nextGroup);
         return "NO_PROXY".getBytes();
