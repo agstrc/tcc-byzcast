@@ -8,12 +8,12 @@ public class Request {
   private final String content;
   private final int targetGroupID;
 
-  Request(String content, int targetGroupID) {
+  public Request(String content, int targetGroupID) {
     this.content = content;
     this.targetGroupID = targetGroupID;
   }
 
-  public UUID getId() {
+  public UUID getID() {
     return id;
   }
 

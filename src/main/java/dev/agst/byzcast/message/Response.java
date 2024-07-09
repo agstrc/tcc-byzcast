@@ -9,8 +9,9 @@ public class Response {
 
   private final ArrayList<Integer> groupIDs = new ArrayList<>();
 
-  Response(String content) {
+  public Response(String content, int currentGroupID) {
     this.content = content;
+    this.groupIDs.add(currentGroupID);
   }
 
   public String getContent() {
