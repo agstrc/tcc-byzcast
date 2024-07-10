@@ -50,15 +50,6 @@ public class Main {
 
     new ServiceReplica(
         serverID, groupConfigFinder.forGroup(groupID), node, node, null, new DefaultReplier());
-
-    // TODO: not sure if this is required to keep the server running
-    while (true) {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
-    }
   }
 
   @Command(name = "client", description = "Starts the client.")

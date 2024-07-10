@@ -19,15 +19,35 @@ public class Node extends DefaultRecoverable {
   private final ArrayList<Request> handledRequests = new ArrayList<>();
   private final RequestHandler handler;
 
+  /**
+   * Constructs a new {@code Node} with the specified request handler.
+   *
+   * @param handler The request handler responsible for processing incoming requests.
+   */
   public Node(RequestHandler handler) {
     this.handler = handler;
   }
 
+  /**
+   * Executes a batch of requests, processing each request in the batch and returning the responses
+   * as an array of byte arrays.
+   *
+   * @param requests The batch of requests to execute, represented as an array of byte arrays.
+   * @param contexts The contexts associated with each request, provided by the BFT-SMaRt library.
+   * @return An array of byte arrays representing the responses to the executed requests.
+   */
   @Override
   public byte[][] appExecuteBatch(byte[][] requets, MessageContext[] contexts) {
     return Arrays.stream(requets).map(this::executeRequest).toArray(byte[][]::new);
   }
 
+  /**
+   * Executes a single request, deserializing it from a byte array, processing it, and serializing
+   * the response back into a byte array.
+   *
+   * @param requestBytes The request to execute, represented as a byte array.
+   * @return The response to the request, serialized as a byte array.
+   */
   private byte[] executeRequest(byte[] requestBytes) {
     Request request;
     try {
@@ -58,6 +78,12 @@ public class Node extends DefaultRecoverable {
     return response.toBytes();
   }
 
+  /**
+   * Captures the current state of the node, including all handled requests, and serializes it into
+   * a byte array.
+   *
+   * @return A byte array representing the current state of the node.
+   */
   @Override
   public byte[] getSnapshot() {
     try {
@@ -73,6 +99,12 @@ public class Node extends DefaultRecoverable {
     }
   }
 
+  /**
+   * Restores the state of the node from a given snapshot, deserializing the state from a byte array
+   * and updating the node's state accordingly.
+   *
+   * @param state The snapshot from which to restore the node's state, represented as a byte array.
+   */
   @Override
   public void installSnapshot(byte[] state) {
     try {
