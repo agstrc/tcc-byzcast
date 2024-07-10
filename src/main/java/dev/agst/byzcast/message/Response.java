@@ -2,9 +2,10 @@ package dev.agst.byzcast.message;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import java.io.Serializable;
 import java.util.ArrayList;
 
-public class Response {
+public class Response implements Serializable {
   private final String content;
 
   private final ArrayList<Integer> groupIDs = new ArrayList<>();

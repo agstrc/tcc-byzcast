@@ -1,8 +1,9 @@
 package dev.agst.byzcast.message;
 
+import java.io.Serializable;
 import java.util.UUID;
 
-public class Request {
+public class Request implements Serializable {
   private final UUID id = UUID.randomUUID();
 
   private final String content;

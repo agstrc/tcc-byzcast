@@ -11,8 +11,8 @@ from ansible.plugins.inventory import BaseInventoryPlugin
 infra_dir = Path(__file__).resolve().parents[1]
 sys.path.append(str(infra_dir))
 
-from py.data import group_size, hosts, num_groups  # noqa: E402
-from py.lib import generate_configs  # noqa: E402
+from ansutils.data import group_size, hosts, num_groups  # noqa: E402
+from ansutils.lib import generate_configs  # noqa: E402
 
 
 class HostVar(TypedDict):

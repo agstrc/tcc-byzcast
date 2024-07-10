@@ -30,7 +30,7 @@ public class InteractiveClient {
 
       try {
         var response = Response.fromBytes(responseBytes);
-        System.out.println("Response: " + response.getContent());
+        System.out.println("Response: " + response.toString());
       } catch (Exception e) {
         System.out.println("Error: " + e.getMessage());
       }

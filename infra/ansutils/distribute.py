@@ -6,8 +6,8 @@ import os
 infra_dir = Path(__file__).resolve().parents[1]
 sys.path.append(str(infra_dir))
 
-from py.data import group_size, hosts, num_groups  # noqa: E402
-from py.lib import generate_configs  # noqa: E402
+from ansutils.data import group_size, hosts, num_groups  # noqa: E402
+from ansutils.lib import generate_configs  # noqa: E402
 
 # This scriptspacks and/or generates all required files to be sent to the remote
 # hosts. It will generate the hosts.config and system.config files for each group
@@ -38,7 +38,7 @@ for group_config in configs:
             )
 
     system_file = group_cfg_dir.joinpath("system.config")
-    shutil.copy(infra_dir.joinpath("py", "example_system_config.txt"), system_file)
+    shutil.copy(infra_dir.joinpath("ansutils", "example_system_config.txt"), system_file)
 
 jar_path = infra_dir.parent.joinpath(
     "target", "byzcast-tcc-1.0-SNAPSHOT-jar-with-dependencies.jar"
