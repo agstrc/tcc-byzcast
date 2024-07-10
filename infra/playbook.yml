@@ -1,37 +1,26 @@
-- name: Generate dist
+- name: Generate distribution
   hosts: localhost
-  tasks:
-    - name: Generate distribution
-      ansible.builtin.command: python ansutils/distribute.py
-      changed_when: true
+  gather_facts: false
+  roles:
+    - role: dist_generation
+      tags: dist_generation
 
-- name: Install byzcast on remote hosts
+- name: Install ByzCast
   hosts: remote_hosts
+  gather_facts: false
+  roles:
+    - role: byzcast_installation
+      tags: byzcast_installation
   vars:
     dist_dir: "dist"
     remote_dest_dir: "byzcast"
     ansible_user: "agst"
-  tasks:
-    - name: Sync dist folder
-      ansible.posix.synchronize:
-        src: "{{ dist_dir }}/"
-        dest: "{{ remote_dest_dir }}/"
-        delete: true
 
-    - name: Ensure Java 21 is installed
-      ansible.builtin.apt:
-        name: openjdk-21-jdk
-        state: present
-        update_cache: true
-      become: true
-
-    - name: Kill existing byzcast processes
-      changed_when: true
-      ansible.builtin.shell: |
-        kill $(pidof java) || true
-      become: true
-
-    - name: Run byzcast
-      changed_when: true
-      startbyzcast:
-        gs: "{{ params }}"
+- name: Execute ByzCast
+  hosts: remote_hosts
+  gather_facts: false
+  roles:
+    - role: byzcast_execution
+      tags: byzcast_execution
+  vars:
+    ansible_user: "agst"

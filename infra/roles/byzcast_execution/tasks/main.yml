@@ -1,0 +1,10 @@
+# This is a lazy way to do it and it could hurt other processes if the servers are
+# shared for other utilities.
+- name: Kill existing ByzCast processes
+  ansible.builtin.shell: |
+    kill $(pidof java) || true
+  changed_when: true
+
+- name: Run ByzCast
+  startbyzcast:
+    gs: "{{ params }}"
