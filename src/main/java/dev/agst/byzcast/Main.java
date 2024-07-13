@@ -1,19 +1,20 @@
 package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
-import bftsmart.tom.server.defaultservices.DefaultReplier;
 import dev.agst.byzcast.client.InteractiveClient;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupMap;
 import dev.agst.byzcast.group.GroupProxyRetriever;
-import dev.agst.byzcast.node.Node;
-import dev.agst.byzcast.node.RequestHandler;
+import dev.agst.byzcast.replica.ReplicaInfo;
+import dev.agst.byzcast.replica.ReplicaNode;
+import dev.agst.byzcast.replica.ReplicaReplier;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 @Command(name = "byzcast", mixinStandardHelpOptions = true)
 public class Main {
+
   @Option(
       names = {"--configs-home"},
       description = "The path to the directory containing all group configurations",
@@ -45,11 +46,16 @@ public class Main {
     var groupConfigFinder = new GroupConfigFinder(configsPath);
     var groupProxyRetriever = new GroupProxyRetriever(groupConfigFinder);
 
-    var requestHandler = new RequestHandler(groupID, groupMap, groupProxyRetriever);
-    var node = new Node(requestHandler);
+    var replicaNode =
+        new ReplicaNode(3, new ReplicaInfo(groupID, serverID), groupMap, groupProxyRetriever);
 
     new ServiceReplica(
-        serverID, groupConfigFinder.forGroup(groupID), node, node, null, new DefaultReplier());
+        serverID,
+        groupConfigFinder.forGroup(groupID),
+        replicaNode,
+        replicaNode,
+        null,
+        new ReplicaReplier());
 
     // TODO: not sure if this is required to keep the server running
     while (true) {

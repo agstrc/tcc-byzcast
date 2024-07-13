@@ -7,6 +7,7 @@ import com.google.gson.reflect.TypeToken;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * This class represents a mapping of groups to their associated groups, forming a graph structure.
@@ -132,6 +134,44 @@ public class GroupMap {
     return parent.containsKey(step)
         ? Optional.of(step)
         : Optional.empty(); // Return the next step towards the target, or empty if not found.
+  }
+
+  /**
+   * Calculates the immediate next steps required to reach each target group from a starting group.
+   * This method maps each target group to an intermediary group that must be traversed next on the
+   * path to the target. Essentially, for every target group, it identifies the next group in the
+   * sequence towards reaching that target. This helps in planning a route that covers all specified
+   * targets by indicating the next move from the start group.
+   *
+   * @param startGroup The starting group from which paths to target groups are sought.
+   * @param targetGroups A list of target groups for which paths need to be identified.
+   * @return An Optional containing a map, where each key is an intermediary group that leads
+   *     towards one or more target groups listed in its associated ArrayList. If the start group is
+   *     not part of the adjacency list or if any target group is unreachable from the start,
+   *     returns an empty Optional.
+   */
+  public Optional<Map<Integer, List<Integer>>> pathsForTargets(
+      Integer startGroup, List<Integer> targetGroups) {
+    if (!adjacencyList.containsKey(startGroup)) {
+      return Optional.empty(); // Return empty if start group doesn't exist.
+    }
+
+    Map<Integer, List<Integer>> nodesToPaths = new TreeMap<>();
+    for (var target : targetGroups) {
+      if (target == startGroup) {
+        return Optional.empty(); // Return empty if target is the same as start group.
+      }
+
+      var nextGroup = nextGroup(startGroup, target);
+      if (nextGroup.isEmpty()) {
+        return Optional.empty();
+      }
+
+      var lst = nodesToPaths.computeIfAbsent(nextGroup.get(), key -> new ArrayList<>());
+      lst.add(target);
+    }
+
+    return Optional.of(nodesToPaths);
   }
 
   private static record Group(Integer groupID, List<Integer> associatedGroups) {}

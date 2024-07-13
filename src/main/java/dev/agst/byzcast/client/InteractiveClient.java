@@ -1,9 +1,11 @@
 package dev.agst.byzcast.client;
 
+import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.group.GroupProxyRetriever;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import java.util.Scanner;
+import java.util.UUID;
 
 public class InteractiveClient {
   Scanner scanner = new Scanner(System.in);
@@ -24,13 +26,13 @@ public class InteractiveClient {
       System.out.print("[content]: ");
       String content = this.scanner.nextLine();
 
-      var request = new Request(content, targetGroupID);
-
-      var responseBytes = proxy.invokeOrdered(request.toBytes());
+      var request = new Request(UUID.randomUUID(), new int[]{targetGroupID}, false, content);
+      var responseBytes = proxy.invokeOrdered(Serializer.toBytes(request));
 
       try {
-        var response = Response.fromBytes(responseBytes);
+        var response = Serializer.fromBytes(responseBytes, Response.class);
         System.out.println("Response: " + response.toString());
+        System.err.println(response.groupIDs().toString() );
       } catch (Exception e) {
         System.out.println("Error: " + e.getMessage());
       }

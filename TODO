@@ -1,0 +1,34 @@
+Usar a parada a seguir pra logar
+Usar custom comparator para record, não implementar diretamente.
+
+// Step 1: Obtain the LoggerContext
+LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+
+// Step 2: Create a PatternLayoutEncoder
+PatternLayoutEncoder encoder = new PatternLayoutEncoder();
+encoder.setContext(loggerContext);
+// encoder.setPattern("%date %level [%thread] %logger{10} [%file:%line] %msg %X{xddd} %n");
+encoder.setPattern("%date %level [%thread] %logger{10} [%file:%line] %msg %X %n");
+encoder.start();
+
+// Step 3: Create and configure a ConsoleAppender
+ConsoleAppender<ILoggingEvent> consoleAppender = new ConsoleAppender<>();
+consoleAppender.setContext(loggerContext);
+consoleAppender.setEncoder(encoder);
+consoleAppender.start();
+
+// Step 4: Attach the ConsoleAppender to the root logger
+ch.qos.logback.classic.Logger rootLogger =
+    loggerContext.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+rootLogger.addAppender(consoleAppender);
+
+// Example usage
+org.slf4j.Logger logger = LoggerFactory.getLogger(Main.class);
+MDC.put("xddd", "xideirs");
+
+MDC.put("zidane", "zidaness");
+
+logger.info("xxxxxxxxxx");
+
+// Remember to clear the MDC to avoid memory leaks
+MDC.clear();
