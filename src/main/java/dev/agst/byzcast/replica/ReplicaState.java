@@ -4,19 +4,30 @@ import dev.agst.byzcast.LRUCache;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import java.io.Serializable;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.UUID;
 
 /**
- * Represents the state of a replica in the Byzantine Broadcast protocol. This class stores the
- * necessary data structures and parameters used by the replica.
+ * This class is responsible for managing the state of a single replica within the ByzCast
+ * distributed system. It plays a crucial role in handling the coordination and communication
+ * between replicas by:
+ *
+ * <p>1. Storing incoming requests from other replicas until they accumulate to a predefined
+ * threshold (N-F), where N is the total number of replicas and F is the maximum number of faulty
+ * replicas the system can tolerate.
+ *
+ * <p>2. Caching the responses to these requests. This cache prevents the need for reprocessing a
+ * request if additional replicas send the same request after the threshold has been reached.
+ *
+ * @see dev.agst.byzcast.replica.ReplicaReplier
  */
 public class ReplicaState implements Serializable {
   private final LRUCache<UUID, Response> repliesCache = new LRUCache<>(2056);
   private final LinkedHashMap<UUID, Integer> pendingRequests = new LinkedHashMap<>();
-  private final TreeSet<Request> handledRequets = new TreeSet<>();
+  private final TreeSet<Request> handledRequets = new TreeSet<>(new RequestComparator());
 
   private final int targetRequestCount;
 
@@ -54,5 +65,12 @@ public class ReplicaState implements Serializable {
 
   public void addHandledRequest(Request request) {
     handledRequets.add(request);
+  }
+
+  private static class RequestComparator implements Serializable, Comparator<Request> {
+    @Override
+    public int compare(Request r1, Request r2) {
+      return r1.id().compareTo(r2.id());
+    }
   }
 }

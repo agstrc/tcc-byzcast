@@ -2,12 +2,10 @@ package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
 import dev.agst.byzcast.client.InteractiveClient;
-import dev.agst.byzcast.group.GroupConfigFinder;
-import dev.agst.byzcast.group.GroupMap;
-import dev.agst.byzcast.group.GroupProxyRetriever;
 import dev.agst.byzcast.replica.ReplicaInfo;
 import dev.agst.byzcast.replica.ReplicaNode;
 import dev.agst.byzcast.replica.ReplicaReplier;
+import dev.agst.byzcast.topology.Topology;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -20,6 +18,12 @@ public class Main {
       description = "The path to the directory containing all group configurations",
       required = true)
   String configsPath;
+
+  @Option(
+      names = {"--groups-map-file"},
+      description = "The file path to the JSON containing the description of group connections",
+      required = true)
+  String groupsMapFilePath;
 
   @Command(name = "server", description = "Starts the server.")
   void server(
@@ -34,24 +38,15 @@ public class Main {
               description = "The group ID",
               type = Integer.class,
               required = true)
-          Integer groupID,
-      @Option(
-              names = {"--groups-map-file"},
-              description =
-                  "The file path to the JSON containing the description of group connections",
-              required = true)
-          String groupsMapFilePath)
+          Integer groupID)
       throws Exception {
-    var groupMap = new GroupMap(groupsMapFilePath);
-    var groupConfigFinder = new GroupConfigFinder(configsPath);
-    var groupProxyRetriever = new GroupProxyRetriever(groupConfigFinder);
 
-    var replicaNode =
-        new ReplicaNode(3, new ReplicaInfo(groupID, serverID), groupMap, groupProxyRetriever);
+    var topology = new Topology(groupsMapFilePath, configsPath);
+    var replicaNode = new ReplicaNode(3, new ReplicaInfo(groupID, serverID), topology);
 
     new ServiceReplica(
         serverID,
-        groupConfigFinder.forGroup(groupID),
+        topology.configPathForGroup(groupID),
         replicaNode,
         replicaNode,
         null,
@@ -68,10 +63,9 @@ public class Main {
   }
 
   @Command(name = "client", description = "Starts the client.")
-  void client() {
-    var configFinder = new GroupConfigFinder(configsPath);
-    var proxyRetriever = new GroupProxyRetriever(configFinder);
-    var client = new InteractiveClient(proxyRetriever);
+  void client() throws Exception {
+    var topology = new Topology(groupsMapFilePath, configsPath);
+    var client = new InteractiveClient(topology);
 
     client.run();
   }

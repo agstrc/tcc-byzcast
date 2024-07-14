@@ -18,6 +18,26 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * The {@code ReplicaReplier} class is a critical component in the ByzCast system, specifically
+ * designed to operate within the BFT-SMaRT framework. It extends the functionality of a standard
+ * replier by introducing the capability to defer the processing of requests. This deferred
+ * processing mechanism is vital for ensuring that a request is only processed once a specific
+ * criterion, typically the accumulation of N-F requests (where N is the total number of replicas in
+ * the system and F is the maximum number of tolerable faulty replicas), has been met. This class is
+ * necessary because the BFT-SMaRT library mandates that application methods return with a reply
+ * before they can handle any other messages. Therefore, the {@code ReplicaReplier} enables the
+ * application implementation to return from within its body, but without yet returning content to
+ * the final client.
+ *
+ * <p>The class achieves its functionality through the interaction with {@code ReplicaReply}
+ * objects, which are specialized messages that replicas must return to its replier. The {@code
+ * ReplicaReplier} processes these messages accordingly, either queuing them until the preconditions
+ * for processing are satisfied or immediately forwarding the response if the request has already
+ * been completed.
+ *
+ * @see dev.agst.byzcast.replica.ReplicaReply
+ */
 public class ReplicaReplier implements Replier {
   private final Lock replyLock = new ReentrantLock();
   private final Condition isContextSet = replyLock.newCondition();

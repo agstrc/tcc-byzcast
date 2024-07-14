@@ -1,12 +1,7 @@
-package dev.agst.byzcast.group;
+package dev.agst.byzcast.topology;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonIOException;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
-import java.io.FileReader;
-import java.io.IOException;
-import java.lang.reflect.Type;
+import bftsmart.tom.ServiceProxy;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,34 +11,49 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * This class represents a mapping of groups to their associated groups, forming a graph structure.
- * It provides functionality to load this mapping from a JSON source and to find a step in the
- * shortest path between two groups using a breadth-first search algorithm.
+ * Represents the topology of a ByzCast network, which is a graph structure of groups and their
+ * associated groups. The class provides functionality to find the next group in the adjacency list
+ * from a start group to a target group, and to calculate the immediate next steps required to reach
+ * each target group from a starting group.
  */
-public class GroupMap {
+public class Topology {
   /**
    * A map representing the adjacency list of the graph. Each key is a group ID, and its value is a
    * list of IDs of directly associated groups.
    */
   private final Map<Integer, List<Integer>> adjacencyList;
 
+  /** The basepath where the configuration directories for individual groups are located. */
+  private final String configsHome;
+
+  /** A map of group IDs to their corresponding service proxies. */
+  private final Map<Integer, ServiceProxy> serviceProxies = new TreeMap<>();
+
+  /** A random number generator for generating random numbers. */
+  private final Random random = new Random();
+
   /**
-   * Constructs a GroupMap instance with a pre-defined adjacency list.
+   * Constructs a Topology instance with a pre-defined adjacency list and a base path for group
+   * configurations.
    *
    * @param adjacencyList A map where each key is a group ID and its value is a list of IDs of
    *     directly associated groups.
+   * @param configsHome The base path where group configuration directories are located.
    */
-  public GroupMap(Map<Integer, List<Integer>> adjacencyList) {
+  public Topology(Map<Integer, List<Integer>> adjacencyList, String configsHome) {
     this.adjacencyList = adjacencyList;
+    this.configsHome = configsHome;
   }
 
   /**
-   * Constructs a GroupMap instance by loading the adjacency list from a JSON file. The file format
-   * must match the following example structure:
+   * Constructs a Topology instance by loading the adjacency list from a JSON file and specifying
+   * the base path for group configurations. The file format must match the following example
+   * structure:
    *
    * <pre>
    * [
@@ -61,34 +71,51 @@ public class GroupMap {
    *    }
    * ]
    * </pre>
+   *
+   * @param topologyConfigPath The path to the JSON file containing the adjacency list.
+   * @param configsHomePath The base path where group configuration directories are located.
+   * @throws TopologyLoadException If there is an error loading the topology from the file.
    */
-  public GroupMap(String filePath) throws GroupMapLoadException {
-    var adjacencyList = GroupMap.loadGroupsConfig(filePath);
-    this.adjacencyList = adjacencyList;
+  public Topology(String topologyConfigPath, String configsHomePath) throws TopologyLoadException {
+    this.adjacencyList = TopologyLoader.loadFrom(topologyConfigPath);
+    this.configsHome = configsHomePath;
   }
 
   /**
-   * Loads the groups configuration from the specified file path and returns a map representing the
-   * adjacency list.
+   * Retrieves the service proxy for the specified group ID.
    *
-   * @param filePath the path to the file containing the groups configuration
-   * @return a map representing the adjacency list of the groups
-   * @throws GroupMapLoadException if an error occurs while loading the groups configuration
+   * @param groupID The ID of the group.
+   * @return The service proxy for the group.
+   * @throws IllegalArgumentException If the group does not exist within the topology.
    */
-  private static Map<Integer, List<Integer>> loadGroupsConfig(String filePath)
-      throws GroupMapLoadException {
-    HashMap<Integer, List<Integer>> adjacencyList = new HashMap<>();
-
-    Gson gson = new Gson();
-    Type groupListType = new TypeToken<List<Group>>() {}.getType();
-
-    try (FileReader reader = new FileReader(filePath)) {
-      List<Group> groups = gson.fromJson(reader, groupListType);
-      groups.forEach(group -> adjacencyList.put(group.groupID, group.associatedGroups));
-      return adjacencyList;
-    } catch (IOException | JsonIOException | JsonSyntaxException e) {
-      throw new GroupMapLoadException(e);
+  public ServiceProxy getServiceProxy(int groupID) {
+    if (!adjacencyList.containsKey(groupID)) {
+      throw new IllegalArgumentException("Group does not exist within the topology.");
     }
+
+    return serviceProxies.computeIfAbsent(
+        groupID,
+        (key) -> {
+          String configHome = configPathForGroup(groupID);
+          return new ServiceProxy(random.nextInt(Integer.MAX_VALUE), configHome);
+        });
+  }
+
+  /**
+   * Returns the configuration home directory path for the specified group ID.
+   *
+   * @param groupID The group ID.
+   * @return The configuration home directory path.
+   */
+  public String configPathForGroup(int groupID) {
+    String groupSuffix;
+    if (groupID < 10) {
+      groupSuffix = "g0" + groupID;
+    } else {
+      groupSuffix = "g" + groupID;
+    }
+
+    return Path.of(configsHome, groupSuffix).toString();
   }
 
   /**
@@ -173,6 +200,4 @@ public class GroupMap {
 
     return Optional.of(nodesToPaths);
   }
-
-  private static record Group(Integer groupID, List<Integer> associatedGroups) {}
 }
