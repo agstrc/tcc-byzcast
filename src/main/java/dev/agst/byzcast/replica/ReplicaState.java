@@ -37,17 +37,36 @@ public class ReplicaState implements Serializable {
   // (including the LRU cache implementation), I assume this issue does not apply. However, I
   // haven't tested this out.
 
+  /**
+   * A set to keep track of handled requests to ensure that a request is processed only once. This
+   * is currently a placeholder for the business logic that could be implemented in the future.
+   */
   private final LinkedHashSet<Request> handled = new LinkedHashSet<>();
 
-  /** Maps pending the UUID of pending requests to how many times they've been received */
+  /**
+   * A map to keep track of the number of times a request has been received. This is used to
+   * determine when a request has met the minimum receive count and is ready to be processed.
+   */
   private final LinkedHashMap<UUID, Integer> pending = new LinkedHashMap<>();
 
+  /**
+   * A cache for storing responses to requests. This LRU (Least Recently Used) cache is used to
+   * quickly retrieve responses for requests that have been processed before, thus avoiding
+   * reprocessing of the same request.
+   */
   private final LRUCache<UUID, Response> cache = new LRUCache<>(2056);
 
+  /**
+   * The minimum number of times a request must be received before it is considered ready for
+   * processing. This threshold is based on ByzCast parameters, specifically the formula N-F, where
+   * N is the total number of replicas and F is the maximum number of faulty replicas the system can
+   * tolerate. This ensures that a request is only processed when it has been received from a
+   * sufficient number of replicas to guarantee consensus in the presence of faults.
+   */
   private final int minReceiveCount;
 
-  public ReplicaState(int minReplicaRequestCount) {
-    this.minReceiveCount = minReplicaRequestCount;
+  public ReplicaState(int minReceiveCount) {
+    this.minReceiveCount = minReceiveCount;
   }
 
   public Optional<Response> getCachedResponse(UUID id) {

@@ -52,14 +52,8 @@ public class Main {
         null,
         new ReplicaReplier());
 
-    // TODO: not sure if this is required to keep the server running
-    while (true) {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
-    }
+    // some tests showed that we need to keep the main thread alive
+    Thread.sleep(Integer.MAX_VALUE);
   }
 
   @Command(name = "client", description = "Starts the client.")

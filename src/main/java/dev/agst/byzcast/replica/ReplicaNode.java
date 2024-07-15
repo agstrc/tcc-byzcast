@@ -7,6 +7,7 @@ import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.topology.Topology;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -28,14 +29,11 @@ import java.util.Arrays;
  */
 public class ReplicaNode extends DefaultRecoverable {
   private final Logger logger;
-  private final ReplicaInfo info;
   private final RequestHandler handler;
 
   private ReplicaState state;
 
   public ReplicaNode(int targetForwardCount, ReplicaInfo replicaInfo, Topology topology) {
-    this.info = replicaInfo;
-
     this.state = new ReplicaState(targetForwardCount);
     this.handler = new RequestHandler(replicaInfo, topology);
 
@@ -57,7 +55,7 @@ public class ReplicaNode extends DefaultRecoverable {
       request = Serializer.fromBytes(cmd, Request.class);
     } catch (Exception e) {
       logger.error("Failed to deserialize request", e);
-      var response = new Response("INVALID_PAYLOAD", new int[] {this.info.groupID()});
+      var response = new Response("INVALID_PAYLOAD", new ArrayList<>());
       var reply = new ReplicaReply.Raw(Serializer.toBytes(response));
 
       return Serializer.toBytes(reply);
@@ -67,8 +65,10 @@ public class ReplicaNode extends DefaultRecoverable {
       ReplicaReply reply = this.handler.handle(request, state);
       return Serializer.toBytes(reply);
     } catch (Exception e) {
-      logger.with("requestID", request.id()).error("Failed to handle request", e);
-      var response = new Response("INTERNAL_ERROR", new int[] {this.info.groupID()});
+      var logger = this.logger.with("requestID", request.id());
+      logger.error("Failed to handle request", e);
+
+      var response = new Response("INTERNAL_ERROR", new ArrayList<>());
       var errorReply = new ReplicaReply.Raw(Serializer.toBytes(response));
       return Serializer.toBytes(errorReply);
     }
@@ -76,7 +76,7 @@ public class ReplicaNode extends DefaultRecoverable {
 
   @Override
   public byte[] appExecuteUnordered(byte[] cmd, MessageContext ctx) {
-    var response = new Response("UNSUPPORTED_OPERATION", new int[] {this.info.groupID()});
+    var response = new Response("UNSUPPORTED_OPERATION", new ArrayList<>());
     var rawResponse = Serializer.toBytes(response);
     return Serializer.toBytes(new ReplicaReply.Raw(rawResponse));
   }

@@ -32,7 +32,7 @@ public class Topology {
   private final String configsHome;
 
   /** A map of group IDs to their corresponding service proxies. */
-  private final Map<Integer, ServiceProxy> serviceProxies = new TreeMap<>();
+  private final Map<Integer, ServiceProxy> serviceProxies = new HashMap<>();
 
   /** A random number generator for generating random numbers. */
   private final Random random = new Random();

@@ -1,18 +1,20 @@
 package dev.agst.byzcast.client;
 
+import com.google.gson.FormattingStyle;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.topology.Topology;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.UUID;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 public class InteractiveClient {
   Scanner scanner = new Scanner(System.in);
-  Gson gson = new GsonBuilder().setPrettyPrinting().create();
+  Gson gson =
+      new GsonBuilder().setPrettyPrinting().setFormattingStyle(FormattingStyle.PRETTY).create();
 
   // GroupProxyRetriever proxyRetriever;
   Topology topology;
@@ -26,12 +28,18 @@ public class InteractiveClient {
       int fromGroupID = mustParseInt("[fromGroupID]: ");
       var proxy = this.topology.getServiceProxy(fromGroupID);
 
-      int targetGroupID = mustParseInt("[targetGroupID]: ");
+      System.out.print("[targetGroupIDs, comma-separated]: ");
+      String targetGroupIDsInput = this.scanner.nextLine();
+      int[] targetGroupIDs =
+          Arrays.stream(targetGroupIDsInput.split(","))
+              .map(String::trim)
+              .mapToInt(Integer::parseInt)
+              .toArray();
 
       System.out.print("[content]: ");
       String content = this.scanner.nextLine();
 
-      var request = new Request(UUID.randomUUID(), new int[] {targetGroupID}, false, content);
+      var request = new Request(UUID.randomUUID(), targetGroupIDs, content, Request.Source.CLIENT);
       var responseBytes = proxy.invokeOrdered(Serializer.toBytes(request));
 
       try {
