@@ -4,6 +4,7 @@ import com.google.gson.FormattingStyle;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.agst.byzcast.Serializer;
+import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.topology.Topology;
@@ -18,15 +19,17 @@ public class InteractiveClient {
 
   // GroupProxyRetriever proxyRetriever;
   Topology topology;
+  GroupProxies groupProxies;
 
-  public InteractiveClient(Topology topology) {
+  public InteractiveClient(Topology topology, GroupProxies groupProxies) {
     this.topology = topology;
+    this.groupProxies = groupProxies;
   }
 
   public void run() {
     while (true) {
       int fromGroupID = mustParseInt("[fromGroupID]: ");
-      var proxy = this.topology.getServiceProxy(fromGroupID);
+      var proxy = groupProxies.forGroup(fromGroupID);
 
       System.out.print("[targetGroupIDs, comma-separated]: ");
       String targetGroupIDsInput = this.scanner.nextLine();

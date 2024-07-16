@@ -2,6 +2,8 @@ package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
 import dev.agst.byzcast.client.InteractiveClient;
+import dev.agst.byzcast.group.GroupConfigFinder;
+import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.replica.ReplicaInfo;
 import dev.agst.byzcast.replica.ReplicaNode;
 import dev.agst.byzcast.replica.ReplicaReplier;
@@ -41,12 +43,16 @@ public class Main {
           Integer groupID)
       throws Exception {
 
-    var topology = new Topology(topologyPath, configsPath);
-    var replicaNode = new ReplicaNode(3, new ReplicaInfo(groupID, serverID), topology);
+    var topology = new Topology(topologyPath);
+    var configFinder = new GroupConfigFinder(configsPath);
+    var groupProxies = new GroupProxies(configFinder);
+
+    var replicaNode =
+        new ReplicaNode(3, new ReplicaInfo(groupID, serverID), topology, groupProxies);
 
     new ServiceReplica(
         serverID,
-        topology.configPathForGroup(groupID),
+        configFinder.forGroup(groupID),
         replicaNode,
         replicaNode,
         null,
@@ -58,9 +64,11 @@ public class Main {
 
   @Command(name = "client", description = "Starts the client.")
   void client() throws Exception {
-    var topology = new Topology(topologyPath, configsPath);
-    var client = new InteractiveClient(topology);
+    var topology = new Topology(topologyPath);
+    var configFinder = new GroupConfigFinder(configsPath);
+    var groupProxies = new GroupProxies(configFinder);
 
+    var client = new InteractiveClient(topology, groupProxies);
     client.run();
   }
 

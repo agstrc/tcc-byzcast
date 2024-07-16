@@ -1,8 +1,9 @@
 package dev.agst.byzcast.replica;
 
 import bftsmart.tom.ServiceProxy;
-import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.Logger;
+import dev.agst.byzcast.Serializer;
+import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.message.Response.GroupResponse;
@@ -28,12 +29,14 @@ public class RequestHandler {
 
   private final ReplicaInfo info;
   private final Topology topology;
+  private final GroupProxies proxies;
 
   private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-  public RequestHandler(ReplicaInfo info, Topology topology) {
+  public RequestHandler(ReplicaInfo info, Topology topology, GroupProxies proxies) {
     this.info = info;
     this.topology = topology;
+    this.proxies = proxies;
 
     this.logger = new Logger().with("GID", info.groupID()).with("SID", info.serverID());
   }
@@ -101,21 +104,25 @@ public class RequestHandler {
             .collect(Collectors.toCollection(ArrayList::new));
     var amTargeted = targetGroups.remove((Integer) this.info.groupID());
 
+    String myContent;
     if (amTargeted) {
+      myContent = "OK";
       state.markAsHandled(request);
+    } else {
+      myContent = "FORWARDED";
     }
 
     if (targetGroups.isEmpty()) {
-      return new Response("OK", new ArrayList<>());
+      return new Response(myContent, new ArrayList<>());
     }
 
-    var optNextGroups = this.topology.pathsForTargets(this.info.groupID(), targetGroups);
+    var optNextGroups = this.topology.findPaths(this.info.groupID(), targetGroups);
     if (optNextGroups.isEmpty()) {
       return new Response("NO_PATH", new ArrayList<>());
     }
 
     var nextGroups = optNextGroups.get().entrySet();
-    return forwardToGroups(request, nextGroups);
+    return forwardToGroups(request, nextGroups, myContent);
   }
 
   /**
@@ -126,9 +133,11 @@ public class RequestHandler {
    * @param request The original request to be forwarded.
    * @param nextGroups A set of entries where each entry contains a group ID and a list of target
    *     group IDs.
+   * @param myContent The content to be included in the response for the current group.
    * @return A Response object that aggregates the responses from all targeted groups.
    */
-  private Response forwardToGroups(Request request, Set<Entry<Integer, List<Integer>>> nextGroups) {
+  private Response forwardToGroups(
+      Request request, Set<Entry<Integer, List<Integer>>> nextGroups, String myContent) {
     // I don't really like all this indentation, but my formatter wills it so it is what it is
     var responseStream =
         nextGroups.stream()
@@ -144,9 +153,7 @@ public class RequestHandler {
                           request.content(),
                           Request.Source.REPLICA);
 
-                  // remember, the topology does not store proxies in a thread safe map. therefore,
-                  // we must make sure to acquire it outside the virtual thread.
-                  var nextProxy = this.topology.getServiceProxy(nextGroupID);
+                  var nextProxy = this.proxies.forGroup(nextGroupID);
                   return executor.submit(() -> forwardToGroup(nextRequest, nextGroupID, nextProxy));
                 })
             .map(
@@ -163,7 +170,7 @@ public class RequestHandler {
                 });
 
     var responses = responseStream.collect(Collectors.toCollection(ArrayList::new));
-    return new Response("OK", responses);
+    return new Response(myContent, responses);
   }
 
   /**

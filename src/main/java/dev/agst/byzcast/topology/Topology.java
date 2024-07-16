@@ -1,166 +1,66 @@
 package dev.agst.byzcast.topology;
 
-import bftsmart.tom.ServiceProxy;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * Represents the topology of a ByzCast network, which is a graph structure of groups and their
- * associated groups. The class provides functionality to find the next group in the adjacency list
- * from a start group to a target group, and to calculate the immediate next steps required to reach
- * each target group from a starting group.
+ * The {@code Topology} class models the network structure within the ByzCast system, providing
+ * various methods to navigate and manipulate the network topology. This includes loading the
+ * topology from a JSON file, finding paths between groups, calculating next steps towards target
+ * groups, and determining the lowest common ancestor (LCA) of given group IDs.
  */
 public class Topology {
-  /**
-   * A map representing the adjacency list of the graph. Each key is a group ID, and its value is a
-   * list of IDs of directly associated groups.
-   */
-  private final Map<Integer, List<Integer>> adjacencyList;
-
-  /** The basepath where the configuration directories for individual groups are located. */
-  private final String configsHome;
-
-  /** A map of group IDs to their corresponding service proxies. */
-  private final Map<Integer, ServiceProxy> serviceProxies = new HashMap<>();
-
-  /** A random number generator for generating random numbers. */
-  private final Random random = new Random();
+  private Group root;
 
   /**
-   * Constructs a Topology instance with a pre-defined adjacency list and a base path for group
-   * configurations.
+   * Initializes a {@code Topology} instance with a given root group.
    *
-   * @param adjacencyList A map where each key is a group ID and its value is a list of IDs of
-   *     directly associated groups.
-   * @param configsHome The base path where group configuration directories are located.
+   * @param root The root group of the topology.
    */
-  public Topology(Map<Integer, List<Integer>> adjacencyList, String configsHome) {
-    this.adjacencyList = adjacencyList;
-    this.configsHome = configsHome;
+  public Topology(Group root) {
+    this.root = root;
   }
 
   /**
-   * Constructs a Topology instance by loading the adjacency list from a JSON file and specifying
-   * the base path for group configurations. The file format must match the following example
-   * structure:
+   * Constructs a {@code Topology} by loading its structure from a JSON file located at the
+   * specified path.
    *
-   * <pre>
-   * [
-   *    {
-   *        "groupID": 1,
-   *        "associatedGroups": [2, 3]
-   *    },
-   *    {
-   *        "groupID": 2,
-   *        "associatedGroups": [3]
-   *    },
-   *    {
-   *        "groupID": 3,
-   *        "associatedGroups": []
-   *    }
-   * ]
-   * </pre>
-   *
-   * @param topologyConfigPath The path to the JSON file containing the adjacency list.
-   * @param configsHomePath The base path where group configuration directories are located.
-   * @throws TopologyLoadException If there is an error loading the topology from the file.
+   * @param path The file path to the JSON file containing the topology data.
+   * @throws TopologyLoadException If there is an error loading the topology from the JSON file.
    */
-  public Topology(String topologyConfigPath, String configsHomePath) throws TopologyLoadException {
-    this.adjacencyList = TopologyLoader.loadFrom(topologyConfigPath);
-    this.configsHome = configsHomePath;
-  }
-
-  /**
-   * Retrieves the service proxy for the specified group ID.
-   *
-   * @param groupID The ID of the group.
-   * @return The service proxy for the group.
-   * @throws IllegalArgumentException If the group does not exist within the topology.
-   */
-  public ServiceProxy getServiceProxy(int groupID) {
-    if (!adjacencyList.containsKey(groupID)) {
-      throw new IllegalArgumentException("Group does not exist within the topology.");
+  public Topology(String path) throws TopologyLoadException {
+    try {
+      this.root = TopologyLoader.loadFromJSON(path);
+    } catch (Exception e) {
+      throw new TopologyLoadException(e);
     }
-
-    return serviceProxies.computeIfAbsent(
-        groupID,
-        (key) -> {
-          String configHome = configPathForGroup(groupID);
-          return new ServiceProxy(random.nextInt(Integer.MAX_VALUE), configHome);
-        });
-  }
-
-  /**
-   * Returns the configuration home directory path for the specified group ID.
-   *
-   * @param groupID The group ID.
-   * @return The configuration home directory path.
-   */
-  public String configPathForGroup(int groupID) {
-    String groupSuffix;
-    if (groupID < 10) {
-      groupSuffix = "g0" + groupID;
-    } else {
-      groupSuffix = "g" + groupID;
-    }
-
-    return Path.of(configsHome, groupSuffix).toString();
   }
 
   /**
    * Finds the next group in the adjacency list from the start group to the target group.
    *
-   * @param startGroup The starting group.
-   * @param targetGroup The target group.
+   * @param startID The starting group.
+   * @param targetID The target group.
    * @return An Optional containing the next group towards the target, or an empty Optional if not
    *     found.
    */
-  public Optional<Integer> nextGroup(Integer startGroup, Integer targetGroup) {
-    if (!adjacencyList.containsKey(startGroup) || !adjacencyList.containsKey(targetGroup)) {
-      return Optional.empty(); // Return empty if either start or target group doesn't exist.
-    }
-    Map<Integer, Integer> parent = new HashMap<>();
-    Queue<Integer> queue = new LinkedList<>();
-    Set<Integer> visited = new HashSet<>();
-
-    queue.add(startGroup);
-    visited.add(startGroup);
-    parent.put(startGroup, null); // Start group has no parent.
-
-    while (!queue.isEmpty()) {
-      Integer current = queue.poll();
-      if (current.equals(targetGroup)) {
-        break; // Found the target group.
-      }
-      for (Integer neighbor : adjacencyList.getOrDefault(current, Collections.emptyList())) {
-        if (!visited.contains(neighbor)) {
-          queue.add(neighbor);
-          visited.add(neighbor);
-          parent.put(neighbor, current);
-        }
-      }
+  public Optional<Integer> nextGroup(int startID, int targetID) {
+    var path = findPath(startID, targetID);
+    if (path.isEmpty()) {
+      return Optional.empty(); // Path not found
     }
 
-    // Backtrack from target to start to find the path.
-    Integer step = targetGroup;
-    while (parent.get(step) != null && !parent.get(step).equals(startGroup)) {
-      step = parent.get(step);
+    var pathList = path.get();
+    if (pathList.size() < 2) {
+      return Optional.empty(); // No next group
     }
 
-    return parent.containsKey(step)
-        ? Optional.of(step)
-        : Optional.empty(); // Return the next step towards the target, or empty if not found.
+    return Optional.of(pathList.get(1)); // Next group
   }
 
   /**
@@ -170,34 +70,118 @@ public class Topology {
    * sequence towards reaching that target. This helps in planning a route that covers all specified
    * targets by indicating the next move from the start group.
    *
-   * @param startGroup The starting group from which paths to target groups are sought.
-   * @param targetGroups A list of target groups for which paths need to be identified.
+   * @param startID The starting group from which paths to target groups are sought.
+   * @param targetIDs A list of target groups for which paths need to be identified.
    * @return An Optional containing a map, where each key is an intermediary group that leads
-   *     towards one or more target groups listed in its associated ArrayList. If the start group is
-   *     not part of the adjacency list or if any target group is unreachable from the start,
-   *     returns an empty Optional.
+   *     towards one or more target groups listed in its associated ArrayList. If the targetIDs list
+   *     is empty, or any group is unreachable from the start, returns an empty Optional.
    */
-  public Optional<Map<Integer, List<Integer>>> pathsForTargets(
-      Integer startGroup, List<Integer> targetGroups) {
-    if (!adjacencyList.containsKey(startGroup)) {
-      return Optional.empty(); // Return empty if start group doesn't exist.
+  public Optional<Map<Integer, List<Integer>>> findPaths(int startID, List<Integer> targetIDs) {
+    if (targetIDs.isEmpty()) {
+      return Optional.empty(); // Return empty if no target groups
     }
 
-    Map<Integer, List<Integer>> nodesToPaths = new TreeMap<>();
-    for (var target : targetGroups) {
-      if (target == startGroup) {
+    Map<Integer, List<Integer>> paths = new TreeMap<>();
+    for (var target : targetIDs) {
+      if (target == startID) {
         return Optional.empty(); // Return empty if target is the same as start group.
       }
 
-      var nextGroup = nextGroup(startGroup, target);
+      var nextGroup = nextGroup(startID, target);
       if (nextGroup.isEmpty()) {
         return Optional.empty();
       }
 
-      var lst = nodesToPaths.computeIfAbsent(nextGroup.get(), key -> new ArrayList<>());
-      lst.add(target);
+      var groupsFrom = paths.computeIfAbsent(nextGroup.get(), key -> new ArrayList<>());
+      groupsFrom.add(target);
     }
 
-    return Optional.of(nodesToPaths);
+    return Optional.of(paths);
+  }
+
+  /**
+   * Finds the lowest common ancestor (LCA) of a set of groups identified by their IDs.
+   *
+   * @param ids A list of integers representing the IDs of the groups for which to find the LCA.
+   * @return An {@code Optional<Group>} containing the LCA group if found, or an empty {@code
+   *     Optional} if no common ancestor exists for the given IDs.
+   */
+  public Optional<Integer> findLCA(List<Integer> ids) {
+    var group = findLCAHelper(root, ids, new HashSet<>(ids));
+    if (group.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(group.get().id());
+  }
+
+  private Optional<List<Integer>> findPath(int startID, int targetID) {
+    // Find the start node first
+    var startNode = findGroupByID(root, startID);
+    if (startNode.isEmpty()) {
+      return Optional.empty(); // Start node not found
+    }
+    List<Integer> path = new ArrayList<>();
+    if (dfs(startNode.get(), targetID, path)) {
+      return Optional.of(path); // Path found
+    }
+    return Optional.empty(); // Path not found
+  }
+
+  // Helper method to perform DFS
+  private boolean dfs(Group current, int targetID, List<Integer> path) {
+    path.add(current.id());
+    if (current.id() == targetID) {
+      return true; // Target found
+    }
+    for (Group child : current.children()) {
+      if (dfs(child, targetID, path)) {
+        return true; // Target found in subtree
+      }
+    }
+    path.remove(path.size() - 1); // Backtrack
+    return false; // Target not found in this path
+  }
+
+  // Helper method to find a group by its ID
+  private Optional<Group> findGroupByID(Group current, int id) {
+    if (current.id() == id) {
+      return Optional.of(current);
+    }
+    for (Group child : current.children()) {
+      var found = findGroupByID(child, id);
+      if (found.isPresent()) {
+        return found;
+      }
+    }
+    return Optional.empty(); // Not found
+  }
+
+  // Helper method to find LCA
+  private Optional<Group> findLCAHelper(Group current, List<Integer> ids, Set<Integer> idSet) {
+    if (current == null) {
+      return Optional.empty();
+    }
+    if (idSet.contains(current.id())) {
+      return Optional.of(current);
+    }
+
+    List<Group> children = current.children();
+    List<Optional<Group>> lcaList = new ArrayList<>();
+
+    for (Group child : children) {
+      var lca = findLCAHelper(child, ids, idSet);
+      lcaList.add(lca);
+    }
+
+    if (lcaList.size() > 1) {
+      // If more than one child returned a result, current node is LCA
+      return Optional.of(current);
+    } else if (lcaList.size() == 1) {
+      // If only one child returned a result, pass it upwards
+      return lcaList.get(0);
+    }
+
+    return Optional.empty();
   }
 }
