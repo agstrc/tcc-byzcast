@@ -45,5 +45,5 @@ jar_path = infra_dir.parent.joinpath(
 )
 shutil.copy(jar_path, dist_path.joinpath("byzcast-tcc.jar"))
 
-json_path = infra_dir.joinpath("config.json")
-shutil.copy(json_path, dist_path.joinpath("config.json"))
+topology_path = infra_dir.joinpath("topology.json")
+shutil.copy(topology_path, dist_path.joinpath("topology.json"))

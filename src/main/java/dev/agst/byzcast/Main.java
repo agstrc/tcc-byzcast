@@ -14,16 +14,16 @@ import picocli.CommandLine.Option;
 public class Main {
 
   @Option(
-      names = {"--configs-home"},
-      description = "The path to the directory containing all group configurations",
+      names = {"--groups-configs"},
+      description = "Path for diretory containing all group configurations",
       required = true)
   String configsPath;
 
   @Option(
-      names = {"--groups-map-file"},
-      description = "The file path to the JSON containing the description of group connections",
+      names = {"--topology"},
+      description = "Path for the JSON file containing the description of group connections",
       required = true)
-  String groupsMapFilePath;
+  String topologyPath;
 
   @Command(name = "server", description = "Starts the server.")
   void server(
@@ -41,7 +41,7 @@ public class Main {
           Integer groupID)
       throws Exception {
 
-    var topology = new Topology(groupsMapFilePath, configsPath);
+    var topology = new Topology(topologyPath, configsPath);
     var replicaNode = new ReplicaNode(3, new ReplicaInfo(groupID, serverID), topology);
 
     new ServiceReplica(
@@ -58,7 +58,7 @@ public class Main {
 
   @Command(name = "client", description = "Starts the client.")
   void client() throws Exception {
-    var topology = new Topology(groupsMapFilePath, configsPath);
+    var topology = new Topology(topologyPath, configsPath);
     var client = new InteractiveClient(topology);
 
     client.run();
