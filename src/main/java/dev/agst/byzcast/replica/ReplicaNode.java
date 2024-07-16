@@ -2,8 +2,8 @@ package dev.agst.byzcast.replica;
 
 import bftsmart.tom.MessageContext;
 import bftsmart.tom.server.defaultservices.DefaultRecoverable;
-import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Serializer;
+import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.topology.Topology;
@@ -39,8 +39,8 @@ public class ReplicaNode extends DefaultRecoverable {
 
     this.logger =
         new Logger()
-            .with("groupID", replicaInfo.groupID())
-            .with("serverID", replicaInfo.serverID());
+            .with("GID", replicaInfo.groupID())
+            .with("SID", replicaInfo.serverID());
   }
 
   @Override
@@ -65,7 +65,7 @@ public class ReplicaNode extends DefaultRecoverable {
       ReplicaReply reply = this.handler.handle(request, state);
       return Serializer.toBytes(reply);
     } catch (Exception e) {
-      var logger = this.logger.with("requestID", request.id());
+      var logger = this.logger.with("RID", request.id());
       logger.error("Failed to handle request", e);
 
       var response = new Response("INTERNAL_ERROR", new ArrayList<>());

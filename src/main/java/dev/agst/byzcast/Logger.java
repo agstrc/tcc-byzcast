@@ -1,100 +1,109 @@
 package dev.agst.byzcast;
 
-import java.util.Map;
-import java.util.TreeMap;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
+// I didn't really like how needlessly complex the setups for most of Java's logging libraries
+// were.
+
 /**
- * Represents a configuration-free logger, with key-value pairs as attributes for log messages. The
- * logger supports INFO and ERROR logging levels, and outputs to the standard output stream.
+ * A simple logging class that supports logging messages with different levels (INFO, ERROR) and
+ * attributes. It allows chaining of attributes using the {@code with} method for contextual
+ * logging.
  */
 public class Logger {
-  /**
-   * Stores custom attributes for log messages. The usage of a TreeMap guarantees that the
-   * attributes are sorted by key.
-   */
-  private Map<String, String> attributes = new TreeMap<>();
-
-  /** Constructs a new Logger instance without any initial attributes. */
-  public Logger() {}
+  /** The attributes of the logger. The usage of a LinkedHashMap guarantees attribute ordering */
+  private LinkedHashMap<String, String> attributes;
 
   /**
-   * Creates a new Logger instance with an additional attribute.
+   * Constructs a new logger instance with the specified attributes.
    *
-   * @param key The key of the attribute to add.
-   * @param value The value of the attribute.
-   * @return A new Logger instance with the added attribute.
+   * @param attributes A TreeMap containing initial attributes for the logger.
    */
-  public Logger with(String key, String value) {
-    var child = new Logger();
-    child.attributes.putAll(this.attributes);
-    child.attributes.put(key, value);
-    return child;
+  private Logger(LinkedHashMap<String, String> attributes) {
+    this.attributes = attributes;
+  }
+
+  /** Constructs a new logger instance with no initial attributes. */
+  public Logger() {
+    this(new LinkedHashMap<>());
   }
 
   /**
-   * Creates a new Logger instance with an additional attribute.
+   * Logs a message at the INFO level.
    *
-   * @param key The key of the attribute to add.
-   * @param value The value of the attribute. Its toString() method will be called.
-   * @return A new Logger instance with the added attribute.
+   * @param message The message to be logged.
    */
-  public <T extends Object> Logger with(String key, T value) {
-    return with(key, value.toString());
+  public void info(String message) {
+    logMessage("INFO", message);
   }
 
   /**
-   * Logs an error message with the current attributes.
+   * Logs a message at the ERROR level.
    *
-   * @param message The error message to log.
+   * @param message The message to be logged.
    */
   public void error(String message) {
-    this.logMessage("ERROR", message);
+    logMessage("ERROR", message);
   }
 
   /**
-   * Logs an error message with the current attributes and an exception.
+   * Logs a message at the ERROR level along with an exception.
    *
-   * @param message The error message to log.
-   * @param e The exception to log.
+   * @param message The message to be logged.
+   * @param e The exception associated with the error.
    */
-  public void error(String message, Exception e) {
-    var logger = this.with("exception", e.getMessage());
+  public void error(String message, Throwable e) {
+    var logger = this.with("dsadas", e.toString());
     logger.error(message);
   }
 
   /**
-   * Logs an informational message with the current attributes.
+   * Adds an attribute to the logger and returns a new logger instance with this attribute. This
+   * method allows for chaining of attributes.
    *
-   * @param message The informational message to log.
+   * @param key The key of the attribute.
+   * @param value The value of the attribute.
+   * @return A new {@code NewLogger} instance with the added attribute.
    */
-  public void info(String message) {
-    this.logMessage("INFO", message);
+  public Logger with(String key, Object value) {
+    var attributes = new LinkedHashMap<>(this.attributes);
+    attributes.put(key, value.toString());
+
+    return new Logger(attributes);
   }
 
   /**
-   * Logs a message with a specified level and the current attributes.
+   * Logs a message with the specified level and the current attributes of the logger.
    *
-   * @param level The level of the log message (e.g., "INFO", "ERROR").
-   * @param message The message to log.
+   * @param level The level of the log message (e.g., INFO, ERROR).
+   * @param message The message to be logged.
    */
   private void logMessage(String level, String message) {
-    StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+    var now = LocalDateTime.now();
+    var formatter = DateTimeFormatter.ISO_DATE_TIME;
+    var nowString = now.format(formatter);
 
-    String callerFullyQualifiedName = "Unknown";
-    if (stackTraceElements.length > 3) {
-      StackTraceElement caller = stackTraceElements[3];
-      callerFullyQualifiedName =
-          String.format(
-              "%s.%s:%s", caller.getClassName(), caller.getMethodName(), caller.getLineNumber());
+    var stackTrace = Thread.currentThread().getStackTrace();
+    var caller = "unknown:0";
+    if (stackTrace.length > 3) {
+      var callerElement = stackTrace[3];
+      caller = callerElement.getFileName() + ":" + callerElement.getLineNumber();
     }
 
-    String attributesString =
-        attributes.entrySet().stream()
+    var attributesString =
+        this.attributes.entrySet().stream()
             .map(entry -> String.format("%s=%s", entry.getKey(), entry.getValue()))
             .collect(Collectors.joining(" "));
 
-    System.out.println(
-        String.format("%s %s %s %s", callerFullyQualifiedName, level, attributesString, message));
+    String log;
+    if (attributes.size() > 0) {
+      log = String.format("%s %s %s %s %s", nowString, caller, level, attributesString, message);
+    } else {
+      log = String.format("%s %s %s %s", nowString, caller, level, message);
+    }
+    System.out.println(log);
   }
 }

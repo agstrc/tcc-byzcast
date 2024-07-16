@@ -1,8 +1,8 @@
 package dev.agst.byzcast.replica;
 
 import bftsmart.tom.ServiceProxy;
-import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Serializer;
+import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.message.Response.GroupResponse;
@@ -35,7 +35,7 @@ public class RequestHandler {
     this.info = info;
     this.topology = topology;
 
-    this.logger = new Logger().with("groupID", info.groupID()).with("serverID", info.serverID());
+    this.logger = new Logger().with("GID", info.groupID()).with("SID", info.serverID());
   }
 
   /**
@@ -52,7 +52,7 @@ public class RequestHandler {
    *     could be a raw response, a pending status, or a completed response.
    */
   public ReplicaReply handle(Request request, ReplicaState state) {
-    var logger = this.logger.with("requestID", request.id());
+    var logger = this.logger.with("RID", request.id());
 
     if (request.source() == Request.Source.CLIENT) {
       logger.info("Request is client request");
