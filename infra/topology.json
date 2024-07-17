@@ -1,18 +1,4 @@
 [
-  {
-    "groupID": 0,
-    "associatedGroups": [1]
-  },
-  {
-    "groupID": 1,
-    "associatedGroups": [2, 3]
-  },
-  {
-    "groupID": 2,
-    "associatedGroups": []
-  },
-  {
-    "groupID": 3,
-    "associatedGroups": [4]
-  }
+  [1, 2],
+  [3, 4]
 ]
