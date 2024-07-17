@@ -2,6 +2,7 @@ package dev.agst.byzcast;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
@@ -56,7 +57,13 @@ public class Logger {
    * @param e The exception associated with the error.
    */
   public void error(String message, Throwable e) {
-    var logger = this.with("dsadas", e.toString());
+    var stackTrace =
+        Arrays.stream(e.getStackTrace())
+            .map(StackTraceElement::toString)
+            .map(String::trim)
+            .collect(Collectors.joining(", "));
+
+    var logger = this.with("exception", e.toString()).with("stackTrace", stackTrace);
     logger.error(message);
   }
 
@@ -88,9 +95,15 @@ public class Logger {
 
     var stackTrace = Thread.currentThread().getStackTrace();
     var caller = "unknown:0";
-    if (stackTrace.length > 3) {
-      var callerElement = stackTrace[3];
-      caller = callerElement.getFileName() + ":" + callerElement.getLineNumber();
+
+    for (int i = 1; i < stackTrace.length; i++) {
+      var element = stackTrace[i];
+      var callerClass = element.getClassName();
+
+      if (!callerClass.equals(Logger.class.getName())) {
+        caller = element.getClassName() + ":" + element.getLineNumber();
+        break;
+      }
     }
 
     var attributesString =

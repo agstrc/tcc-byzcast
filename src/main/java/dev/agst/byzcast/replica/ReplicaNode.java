@@ -30,15 +30,13 @@ import java.util.Arrays;
  */
 public class ReplicaNode extends DefaultRecoverable {
   private final Logger logger;
+
   private final RequestHandler handler;
 
   private ReplicaState state;
 
   public ReplicaNode(
-      int targetForwardCount,
-      ReplicaInfo replicaInfo,
-      Topology topology,
-      GroupProxies proxies) {
+      int targetForwardCount, ReplicaInfo replicaInfo, Topology topology, GroupProxies proxies) {
     this.state = new ReplicaState(targetForwardCount);
     this.handler = new RequestHandler(replicaInfo, topology, proxies);
 

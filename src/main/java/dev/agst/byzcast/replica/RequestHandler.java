@@ -15,6 +15,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -31,6 +32,7 @@ public class RequestHandler {
   private final Topology topology;
   private final GroupProxies proxies;
 
+  /** The executor responsible for async requests sent upstream */
   private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
   public RequestHandler(ReplicaInfo info, Topology topology, GroupProxies proxies) {
@@ -39,6 +41,19 @@ public class RequestHandler {
     this.proxies = proxies;
 
     this.logger = new Logger().with("GID", info.groupID()).with("SID", info.serverID());
+
+    // init all proxies
+    var optChildrenIDs = topology.getChildrenIDs(info.groupID());
+    if (optChildrenIDs.isEmpty()) {
+      var message =
+          String.format("Provided group ID (%d) does not exist in the topology", info.groupID());
+      throw new IllegalArgumentException(message);
+    }
+
+    var childrenIDs = optChildrenIDs.get();
+    for (var childID : childrenIDs) {
+      this.proxies.forGroup(childID);
+    }
   }
 
   /**
@@ -63,7 +78,7 @@ public class RequestHandler {
       return new ReplicaReply.Raw(Serializer.toBytes(response));
     }
 
-    logger.info("Request is replica request");
+    logger = logger.with("source", "REPLICA");
     var optCachedResponse = state.getCachedResponse(request.id());
     if (optCachedResponse.isPresent()) {
       logger.info("Response is cached");
@@ -104,16 +119,13 @@ public class RequestHandler {
             .collect(Collectors.toCollection(ArrayList::new));
     var amTargeted = targetGroups.remove((Integer) this.info.groupID());
 
-    String myContent;
     if (amTargeted) {
-      myContent = "OK";
       state.markAsHandled(request);
-    } else {
-      myContent = "FORWARDED";
     }
 
+    var responseContent = amTargeted ? "HANDLED" : "FORWARDED";
     if (targetGroups.isEmpty()) {
-      return new Response(myContent, new ArrayList<>());
+      return new Response(responseContent, new ArrayList<>());
     }
 
     var optNextGroups = this.topology.findPaths(this.info.groupID(), targetGroups);
@@ -122,55 +134,65 @@ public class RequestHandler {
     }
 
     var nextGroups = optNextGroups.get().entrySet();
-    return forwardToGroups(request, nextGroups, myContent);
+    var groupResponses = forwardToGroups(request, nextGroups);
+    return new Response(responseContent, groupResponses);
   }
 
   /**
    * Forwards the given request to the specified groups concurrently using virtual threads. This
-   * method prepares a new request for each target group and submits it for processing. The
-   * responses from each group are collected, and a composite response is constructed and returned.
+   * method prepares a new request for each target group and submits it for processing via an
+   * executor. The method collects responses from each targeted group, handling any exceptions that
+   * occur during forwarding. A composite response is constructed from the individual group
+   * responses and returned. If a forwarding operation fails for any group, a default response
+   * indicating failure is included for that group.
    *
    * @param request The original request to be forwarded.
    * @param nextGroups A set of entries where each entry contains a group ID and a list of target
-   *     group IDs.
-   * @param myContent The content to be included in the response for the current group.
-   * @return A Response object that aggregates the responses from all targeted groups.
+   *     group IDs for forwarding. This set determines the next groups to which the request should
+   *     be forwarded and the subsequent target groups for each of those forwards.
+   * @return An ArrayList of GroupResponse objects that aggregates the responses from all targeted
+   *     groups.
    */
-  private Response forwardToGroups(
-      Request request, Set<Entry<Integer, List<Integer>>> nextGroups, String myContent) {
+  private ArrayList<GroupResponse> forwardToGroups(
+      Request request, Set<Entry<Integer, List<Integer>>> nextGroups) {
     // I don't really like all this indentation, but my formatter wills it so it is what it is
     var responseStream =
         nextGroups.stream()
             .map(
                 nextGroup -> {
-                  var nextGroupID = nextGroup.getKey();
-                  var nextTargetGroups =
-                      nextGroup.getValue().stream().mapToInt(Integer::intValue).toArray();
-                  var nextRequest =
-                      new Request(
-                          request.id(),
-                          nextTargetGroups,
-                          request.content(),
-                          Request.Source.REPLICA);
-
-                  var nextProxy = this.proxies.forGroup(nextGroupID);
-                  return executor.submit(() -> forwardToGroup(nextRequest, nextGroupID, nextProxy));
+                  return forwardToGroup(request, nextGroup.getKey(), nextGroup.getValue());
                 })
             .map(
                 future -> {
                   try {
                     return future.get();
                   } catch (Exception e) {
-                    // we do not expect to get here. The forwardToGroup method should handle all
-                    // exceptions.
-                    this.logger.error("Failed to handle request", e);
-                    var responseContent = "REQUEST_FAILED";
-                    return new GroupResponse(-1, new Response(responseContent, new ArrayList<>()));
+                    // the only "acceptable" exception here would be interrupted exception, as the
+                    // inner method forwardToGroup should handle all other exceptions
+                    throw new RuntimeException(e);
                   }
                 });
 
-    var responses = responseStream.collect(Collectors.toCollection(ArrayList::new));
-    return new Response(myContent, responses);
+    return responseStream.collect(Collectors.toCollection(ArrayList::new));
+  }
+
+  /**
+   * Asynchronous wrap and boilerplate for {@link #forwardToGroup(Request, int, ServiceProxy)} to
+   * allow for concurrent request forwarding.
+   *
+   * @param localReq The {@link Request} object to be sent upstream.
+   * @param targetGroupID The target group ID to which the request should be forwarded.
+   * @param targetGroups A list of desired target group IDs expected to be reached from the target
+   * @return A {@link Future<GroupResponse>} object representing the asynchronous operation of
+   *     forwarding the request to the target group.
+   */
+  private Future<GroupResponse> forwardToGroup(
+      Request localReq, int targetGroupID, List<Integer> targetGroups) {
+    var groupsArray = targetGroups.stream().mapToInt(Integer::intValue).toArray();
+    var request =
+        new Request(localReq.id(), groupsArray, localReq.content(), Request.Source.REPLICA);
+    var proxy = this.proxies.forGroup(targetGroupID);
+    return executor.submit(() -> forwardToGroup(request, targetGroupID, proxy));
   }
 
   /**
@@ -192,7 +214,7 @@ public class RequestHandler {
       return new GroupResponse(groupID, response);
     } catch (Exception e) {
       this.logger.error("Failed to handle request", e);
-      var responseContent = String.format("REQUEST_TO_GROUP_%f_FAILED", groupID);
+      var responseContent = String.format("REQUEST_TO_GROUP_%d_FAILED", groupID);
       return new GroupResponse(groupID, new Response(responseContent, new ArrayList<>()));
     }
   }

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * The {@code Topology} class models the network structure within the ByzCast system, providing
@@ -24,6 +25,45 @@ public class Topology {
    */
   public Topology(Group root) {
     this.root = root;
+  }
+
+  /**
+   * Retrieves a set of all group IDs present in the topology.
+   *
+   * @return A {@code Set<Integer>} containing all group IDs.
+   */
+  public Set<Integer> getGroupIDs() {
+    return getGroupIDs(root, new TreeSet<>());
+  }
+
+  private Set<Integer> getGroupIDs(Group current, Set<Integer> groupIDs) {
+    groupIDs.add(current.id());
+    for (var child : current.children()) {
+      getGroupIDs(child, groupIDs);
+    }
+    return groupIDs;
+  }
+
+  /**
+   * Retrieves the IDs of all children of a group identified by its ID.
+   *
+   * @param groupID The ID of the group whose children are to be retrieved.
+   * @return An {@code Optional} containing a {@code Set<Integer>} of children IDs if the group is
+   *     found, or an empty {@code Optional} if the group is not present in the topology.
+   */
+  public Optional<Set<Integer>> getChildrenIDs(int groupID) {
+    var optGroup = this.findGroupByID(root, groupID);
+    if (optGroup.isEmpty()) {
+      return Optional.empty();
+    }
+
+    var group = optGroup.get();
+    Set<Integer> childrenIDs = new HashSet<>();
+    for (var child : group.children()) {
+      childrenIDs.add(child.id());
+    }
+
+    return Optional.of(childrenIDs);
   }
 
   /**
