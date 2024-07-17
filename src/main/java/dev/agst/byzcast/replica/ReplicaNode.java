@@ -4,10 +4,8 @@ import bftsmart.tom.MessageContext;
 import bftsmart.tom.server.defaultservices.DefaultRecoverable;
 import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Serializer;
-import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
-import dev.agst.byzcast.topology.Topology;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -30,18 +28,22 @@ import java.util.Arrays;
  */
 public class ReplicaNode extends DefaultRecoverable {
   private final Logger logger;
-
   private final RequestHandler handler;
 
   private ReplicaState state;
 
-  public ReplicaNode(
-      int targetForwardCount, ReplicaInfo replicaInfo, Topology topology, GroupProxies proxies) {
-    this.state = new ReplicaState(targetForwardCount);
-    this.handler = new RequestHandler(replicaInfo, topology, proxies);
+  public ReplicaNode(Logger logger, RequestHandler handler, ReplicaState state) {
+    this.logger = logger;
+    this.handler = handler;
+    this.state = state;
+  }
 
-    this.logger =
-        new Logger().with("GID", replicaInfo.groupID()).with("SID", replicaInfo.serverID());
+  /**
+   * A factory method for creating instances of {@code ReplicaNode}. This method is used to ensure
+   * that all necessary components are properly initialized before the instance is created.
+   */
+  public static ReplicaNodeBuilderFactory.LoggerConfigurator builder() {
+    return new ReplicaNodeBuilderFactory.Builder();
   }
 
   @Override

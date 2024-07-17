@@ -45,10 +45,17 @@ public class Main {
 
     var topology = new Topology(topologyPath);
     var configFinder = new GroupConfigFinder(configsPath);
-    var groupProxies = new GroupProxies(configFinder);
+    var info = new ReplicaInfo(groupID, serverID);
+    var logger = new Logger().with("GID", groupID).with("SID", serverID);
 
     var replicaNode =
-        new ReplicaNode(3, new ReplicaInfo(groupID, serverID), topology, groupProxies);
+        ReplicaNode.builder()
+            .withLogger(logger)
+            .withInfo(info)
+            .withConfigFinder(configFinder)
+            .withTopology(topology)
+            .withTargetRequestCount(3)
+            .build();
 
     new ServiceReplica(
         serverID,

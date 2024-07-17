@@ -29,31 +29,18 @@ public class RequestHandler {
   private final Logger logger;
 
   private final ReplicaInfo info;
-  private final Topology topology;
+
   private final GroupProxies proxies;
+  private final Topology topology;
 
   /** The executor responsible for async requests sent upstream */
   private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-  public RequestHandler(ReplicaInfo info, Topology topology, GroupProxies proxies) {
+  public RequestHandler(Logger logger, ReplicaInfo info, GroupProxies proxies, Topology topology) {
+    this.logger = logger;
     this.info = info;
-    this.topology = topology;
     this.proxies = proxies;
-
-    this.logger = new Logger().with("GID", info.groupID()).with("SID", info.serverID());
-
-    // init all proxies
-    var optChildrenIDs = topology.getChildrenIDs(info.groupID());
-    if (optChildrenIDs.isEmpty()) {
-      var message =
-          String.format("Provided group ID (%d) does not exist in the topology", info.groupID());
-      throw new IllegalArgumentException(message);
-    }
-
-    var childrenIDs = optChildrenIDs.get();
-    for (var childID : childrenIDs) {
-      this.proxies.forGroup(childID);
-    }
+    this.topology = topology;
   }
 
   /**
