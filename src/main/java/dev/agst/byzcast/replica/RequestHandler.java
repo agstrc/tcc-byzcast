@@ -2,6 +2,7 @@ package dev.agst.byzcast.replica;
 
 import bftsmart.tom.ServiceProxy;
 import dev.agst.byzcast.Logger;
+import dev.agst.byzcast.Logger.Attr;
 import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.message.Request;
@@ -57,15 +58,15 @@ public class RequestHandler {
    *     could be a raw response, a pending status, or a completed response.
    */
   public ReplicaReply handle(Request request, ReplicaState state) {
-    var logger = this.logger.with("RID", request.id());
+    var logger = this.logger.with(new Attr("RID", request.id()));
 
     if (request.source() == Request.Source.CLIENT) {
       logger.info("Request is client request");
-      var response = this.handleReadyRequest(request, state);
+      var response = this.handleReadyRequest(request, state, logger);
       return new ReplicaReply.Raw(Serializer.toBytes(response));
     }
 
-    logger = logger.with("source", "REPLICA");
+    logger = logger.with(new Attr("source", "REPLICA"));
     var optCachedResponse = state.getCachedResponse(request.id());
     if (optCachedResponse.isPresent()) {
       logger.info("Response is cached");
@@ -80,7 +81,7 @@ public class RequestHandler {
     }
 
     logger.info("Request has reached minimum receive count");
-    var response = this.handleReadyRequest(request, state);
+    var response = this.handleReadyRequest(request, state, logger);
     state.cacheResponse(request, response);
     return new ReplicaReply.Completed(request.id(), Serializer.toBytes(response));
   }
@@ -99,7 +100,7 @@ public class RequestHandler {
    *     could be an immediate response if the node is a target, or a composite response from
    *     forwarding the request to other target groups.
    */
-  private Response handleReadyRequest(Request request, ReplicaState state) {
+  private Response handleReadyRequest(Request request, ReplicaState state, Logger logger) {
     var targetGroups =
         Arrays.stream(request.targetGroups())
             .boxed()
@@ -107,6 +108,7 @@ public class RequestHandler {
     var amTargeted = targetGroups.remove((Integer) this.info.groupID());
 
     if (amTargeted) {
+      logger.info("Request locally handled");
       state.markAsHandled(request);
     }
 
@@ -117,10 +119,29 @@ public class RequestHandler {
 
     var optNextGroups = this.topology.findPaths(this.info.groupID(), targetGroups);
     if (optNextGroups.isEmpty()) {
+      logger.error("No path found to target groups");
       return new Response("NO_PATH", new ArrayList<>());
     }
 
     var nextGroups = optNextGroups.get().entrySet();
+
+    // generates a mapping of forwarding attributes, detailing which group is designated
+    // to receive specific request targets.
+    var forwardingAttributes =
+        nextGroups.stream()
+            .map(
+                entry -> {
+                  var key = "forwardIntoGroup" + entry.getKey();
+                  var value =
+                      entry.getValue().stream()
+                          .map(Object::toString)
+                          .collect(Collectors.joining(","));
+
+                  return new Attr(key, value);
+                })
+            .toArray(Attr[]::new);
+
+    logger.info("Forwarding request to target groups", forwardingAttributes);
     var groupResponses = forwardToGroups(request, nextGroups);
     return new Response(responseContent, groupResponses);
   }

@@ -2,9 +2,11 @@ package dev.agst.byzcast;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 // I didn't really like how needlessly complex the setups for most of Java's logging libraries
 // were.
@@ -15,39 +17,66 @@ import java.util.stream.Collectors;
  * logging.
  */
 public class Logger {
-  /** The attributes of the logger. The usage of a LinkedHashMap guarantees attribute ordering */
-  private LinkedHashMap<String, String> attributes;
+  /**
+   * Represents a simple key-value pair attribute. This record is used to store additional
+   * information that can be attached to log messages, allowing for more detailed and contextual
+   * logging. The key is a {@code String} that identifies the attribute, and the value is an {@code
+   * Object} that represents the attribute's value. The object's {@code toString} method is called
+   * to get the string representation of the value.
+   */
+  public static record Attr(String key, Object value) {}
+
+  /** The inherent attributes of the current logger. */
+  private final List<Attr> attrs;
+
+  /** Constructs a new logger instance with no initial attributes. */
+  public Logger() {
+    this.attrs = new ArrayList<>();
+  }
 
   /**
    * Constructs a new logger instance with the specified attributes.
    *
-   * @param attributes A TreeMap containing initial attributes for the logger.
+   * @param attrs The attributes to be attached to the logger.
    */
-  private Logger(LinkedHashMap<String, String> attributes) {
-    this.attributes = attributes;
+  private Logger(List<Attr> attrs) {
+    this.attrs = attrs;
   }
 
-  /** Constructs a new logger instance with no initial attributes. */
-  public Logger() {
-    this(new LinkedHashMap<>());
+  /**
+   * Creates a new logger instance with the specified attributes appended to the current logger's
+   * attributes.
+   *
+   * @param attrs The attributes to be appended to the logger.
+   * @return A new logger instance with the specified attributes.
+   */
+  public Logger with(Attr... attrs) {
+    var childAttrs = new ArrayList<>(this.attrs);
+    for (var attr : attrs) {
+      childAttrs.add(attr);
+    }
+
+    return new Logger(childAttrs);
   }
 
   /**
    * Logs a message at the INFO level.
    *
    * @param message The message to be logged.
+   * @param attrs The attributes to be attached to the log message.
    */
-  public void info(String message) {
-    logMessage("INFO", message);
+  public void info(String message, Attr... attrs) {
+    logMessage("INFO", message, attrs);
   }
 
   /**
    * Logs a message at the ERROR level.
    *
    * @param message The message to be logged.
+   * @param attrs The attributes to be attached to the log message.
    */
-  public void error(String message) {
-    logMessage("ERROR", message);
+  public void error(String message, Attr... attrs) {
+    logMessage("ERROR", message, attrs);
   }
 
   /**
@@ -55,47 +84,31 @@ public class Logger {
    *
    * @param message The message to be logged.
    * @param e The exception associated with the error.
+   * @param attrs The attributes to be attached to the log message.
    */
-  public void error(String message, Throwable e) {
-    var stackTrace =
+  public void error(String message, Throwable e, Attr... attrs) {
+    var exceptionAttr = new Attr("exception", e.toString());
+
+    var stackTraceMessage =
         Arrays.stream(e.getStackTrace())
             .map(StackTraceElement::toString)
             .map(String::trim)
             .collect(Collectors.joining(", "));
+    var stackTraceAttr = new Attr("stackTrace", stackTraceMessage);
 
-    var logger = this.with("exception", e.toString()).with("stackTrace", stackTrace);
-    logger.error(message);
+    var throwableAttrs = new Attr[] {exceptionAttr, stackTraceAttr};
+    var finalAttrs =
+        Stream.concat(Arrays.stream(attrs), Arrays.stream(throwableAttrs)).toArray(Attr[]::new);
+
+    logMessage("ERROR", message, finalAttrs);
   }
 
-  /**
-   * Adds an attribute to the logger and returns a new logger instance with this attribute. This
-   * method allows for chaining of attributes.
-   *
-   * @param key The key of the attribute.
-   * @param value The value of the attribute.
-   * @return A new {@code NewLogger} instance with the added attribute.
-   */
-  public Logger with(String key, Object value) {
-    var attributes = new LinkedHashMap<>(this.attributes);
-    attributes.put(key, value.toString());
-
-    return new Logger(attributes);
-  }
-
-  /**
-   * Logs a message with the specified level and the current attributes of the logger.
-   *
-   * @param level The level of the log message (e.g., INFO, ERROR).
-   * @param message The message to be logged.
-   */
-  private void logMessage(String level, String message) {
+  private void logMessage(String level, String message, Attr... attrs) {
     var now = LocalDateTime.now();
-    var formatter = DateTimeFormatter.ISO_DATE_TIME;
-    var nowString = now.format(formatter);
+    var nowString = now.format(DateTimeFormatter.ISO_DATE_TIME);
 
     var stackTrace = Thread.currentThread().getStackTrace();
     var caller = "unknown:0";
-
     for (int i = 1; i < stackTrace.length; i++) {
       var element = stackTrace[i];
       var callerClass = element.getClassName();
@@ -106,16 +119,21 @@ public class Logger {
       }
     }
 
-    var attributesString =
-        this.attributes.entrySet().stream()
-            .map(entry -> String.format("%s=%s", entry.getKey(), entry.getValue()))
+    var finalAttributes =
+        Stream.concat(this.attrs.stream(), Arrays.stream(attrs))
+            .map(
+                attr -> {
+                  var key = attr.key();
+                  var value = attr.value().toString();
+                  return key + "=" + value;
+                })
             .collect(Collectors.joining(" "));
 
     String log;
-    if (attributes.size() > 0) {
-      log = String.format("%s %s %s %s %s", nowString, caller, level, attributesString, message);
-    } else {
+    if (finalAttributes.isEmpty()) {
       log = String.format("%s %s %s %s", nowString, caller, level, message);
+    } else {
+      log = String.format("%s %s %s %s %s", nowString, caller, level, finalAttributes, message);
     }
     System.out.println(log);
   }

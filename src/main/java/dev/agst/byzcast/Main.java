@@ -1,6 +1,7 @@
 package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
+import dev.agst.byzcast.Logger.Attr;
 import dev.agst.byzcast.client.InteractiveClient;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupProxies;
@@ -46,7 +47,7 @@ public class Main {
     var topology = new Topology(topologyPath);
     var configFinder = new GroupConfigFinder(configsPath);
     var info = new ReplicaInfo(groupID, serverID);
-    var logger = new Logger().with("GID", groupID).with("SID", serverID);
+    var logger = new Logger().with(new Attr("GID", groupID), new Attr("SID", serverID));
 
     var replicaNode =
         ReplicaNode.builder()

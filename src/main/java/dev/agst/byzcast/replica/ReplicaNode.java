@@ -3,6 +3,7 @@ package dev.agst.byzcast.replica;
 import bftsmart.tom.MessageContext;
 import bftsmart.tom.server.defaultservices.DefaultRecoverable;
 import dev.agst.byzcast.Logger;
+import dev.agst.byzcast.Logger.Attr;
 import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
@@ -68,8 +69,7 @@ public class ReplicaNode extends DefaultRecoverable {
       ReplicaReply reply = this.handler.handle(request, state);
       return Serializer.toBytes(reply);
     } catch (Exception e) {
-      var logger = this.logger.with("RID", request.id());
-      logger.error("Failed to handle request", e);
+      logger.error("Failed to handle request", e, new Attr("RID", request.id()));
 
       var response = new Response("INTERNAL_ERROR", new ArrayList<>());
       var errorReply = new ReplicaReply.Raw(Serializer.toBytes(response));
