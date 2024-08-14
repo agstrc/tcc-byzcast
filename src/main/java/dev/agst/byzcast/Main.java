@@ -2,7 +2,7 @@ package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
 import dev.agst.byzcast.Logger.Attr;
-import dev.agst.byzcast.client.InteractiveClient;
+import dev.agst.byzcast.client.BatchTestClient;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.replica.ReplicaInfo;
@@ -76,8 +76,8 @@ public class Main {
     var configFinder = new GroupConfigFinder(configsPath);
     var groupProxies = new GroupProxies(configFinder);
 
-    var client = new InteractiveClient(topology, groupProxies);
-    client.run();
+    var client = new BatchTestClient(topology, groupProxies);
+    client.run(8);
   }
 
   public static void main(String[] args) {

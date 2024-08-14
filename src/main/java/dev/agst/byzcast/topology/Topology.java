@@ -202,26 +202,26 @@ public class Topology {
     if (current == null) {
       return Optional.empty();
     }
-    if (idSet.contains(current.id())) {
-      return Optional.of(current);
-    }
-
-    List<Group> children = current.children();
-    List<Optional<Group>> lcaList = new ArrayList<>();
-
-    for (Group child : children) {
+  
+    int lcaCount = 0;
+    Optional<Group> tempLCA = Optional.empty();
+  
+    for (Group child : current.children()) {
       var lca = findLCAHelper(child, ids, idSet);
-      lcaList.add(lca);
+      if (lca.isPresent()) {
+        lcaCount++;
+        tempLCA = lca;
+      }
     }
-
-    if (lcaList.size() > 1) {
-      // If more than one child returned a result, current node is LCA
-      return Optional.of(current);
-    } else if (lcaList.size() == 1) {
-      // If only one child returned a result, pass it upwards
-      return lcaList.get(0);
+  
+    if (idSet.contains(current.id())) {
+      return Optional.of(current); // Current node is part of the LCA
     }
-
-    return Optional.empty();
+  
+    if (lcaCount > 1) {
+      return Optional.of(current); // Current node is the LCA as it connects more than one path
+    }
+  
+    return tempLCA; // Return the single LCA found among children, if any
   }
 }
