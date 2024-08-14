@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# TODO: allow for a different number of faulty servers
 topology = [[1, 2], [3, 4]]
 
 group_size = 4
