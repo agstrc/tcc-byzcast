@@ -69,9 +69,9 @@ def main() -> None:
 
         unordered = unordered_common_elements(log1.requests, log2.requests)
         if unordered:
-            print("UNORDERED", log1.file_name, log2.file_name, unordered)
+            print("UNORDERED", log1.file_name, log2.file_name, f"intersection_size={len(intersection)}", unordered)
         else:
-            print("OK", log1.file_name, log2.file_name)
+            print("OK", log1.file_name, log2.file_name, f"intersection_size={len(intersection)}")
 
     print("Checking for cycles")
 
