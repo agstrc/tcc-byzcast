@@ -4,15 +4,13 @@ from pathlib import Path
 from typing import TypedDict
 from base64 import b64encode
 
-from ansible.plugins.inventory import BaseInventoryPlugin
+from ansible.plugins.inventory import BaseInventoryPlugin  # type: ignore
 
-# There certainly is a better way to do this, but ATM I could not find a way to predict
-# the PYTHONPATH whenever the plugin is executed.
 infra_dir = Path(__file__).resolve().parents[1]
 sys.path.append(str(infra_dir))
 
-from ansutils.data import group_size, hosts, num_groups  # noqa: E402
-from ansutils.lib import generate_configs  # noqa: E402
+from py.lib.data import group_size, hosts, num_groups  # type: ignore  # noqa: E402
+from py.lib.byzcastcfg import generate_configs  # type: ignore  # noqa: E402
 
 
 class HostVar(TypedDict):
@@ -29,7 +27,7 @@ class InventoryModule(BaseInventoryPlugin):
         # This plugin generates the whole of the inventory.
         return True
 
-    def parse(self, inventory, loader, path, cache=True):
+    def parse(self, inventory, loader, path, cache=True) -> None:
         super(InventoryModule, self).parse(inventory, loader, path, cache)
 
         configs = generate_configs(hosts, num_groups, group_size)

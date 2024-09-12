@@ -1,3 +1,3 @@
 - name: Generate distribution
-  ansible.builtin.command: python ansutils/distribute.py
+  ansible.builtin.command: python py/distgen.py
   changed_when: true

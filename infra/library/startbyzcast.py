@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import AnsibleModule  # type: ignore
 
 DOCUMENTATION = """
 ---
@@ -33,7 +33,7 @@ class HostVar:
     group_id: int
 
 
-def main():
+def main() -> None:
     module = AnsibleModule(
         argument_spec=dict(
             gs=dict(
@@ -49,7 +49,7 @@ def main():
         return module.fail_json(msg="Java was not found in PATH")
 
     gs: str = module.params["gs"]
-    true_host_vars: list[HostVar] = []
+    decoded_host_vars: list[HostVar] = []
 
     try:
         host_vars = b64decode(gs).decode()
@@ -70,7 +70,7 @@ def main():
 
         try:
             host_var = HostVar(**host_var)
-            true_host_vars.append(host_var)
+            decoded_host_vars.append(host_var)
         except TypeError as e:
             return module.fail_json(
                 msg="Array contains invalid object",
@@ -97,7 +97,7 @@ def main():
         symlink_path.unlink()
     symlink_path.symlink_to(log_dir.resolve())
 
-    for host_var in true_host_vars:
+    for host_var in decoded_host_vars:
         server_id, group_id = host_var.server_id, host_var.group_id
 
         log_file_path = Path.joinpath(log_dir, f"g{group_id}_s{server_id}.log")
