@@ -7,7 +7,7 @@ from base64 import b64encode
 from ansible.plugins.inventory import BaseInventoryPlugin  # type: ignore
 
 infra_dir = Path(__file__).resolve().parents[1]
-sys.path.append(str(infra_dir))
+sys.path.insert(0, str(infra_dir))
 
 from py.lib.data import group_size, hosts, num_groups  # type: ignore  # noqa: E402
 from py.lib.byzcastcfg import generate_configs  # type: ignore  # noqa: E402
