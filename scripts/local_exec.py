@@ -31,7 +31,7 @@ for group in range(group_count):
             f.write(f"{sid} 127.0.0.1 {current_port}\n")
             current_port += 10
 
-    cfg_path = project_dir.joinpath("infra/ansutils/example_system_config.txt")
+    cfg_path = project_dir.joinpath("infra/assets/example_system_config.txt")
     shutil.copy(
         cfg_path,
         system_cfg_path,

@@ -43,7 +43,7 @@ jar_path = infra_dir.parent.joinpath(
 )
 shutil.copy(jar_path, dist_path.joinpath("byzcast-tcc.jar"))
 
-topology_path = infra_dir.joinpath("topology.json")
+topology_path = dist_path.joinpath("topology.json")
 with open(topology_path, "w") as file:
     file_contents = json.dumps(topology)
     file.write(file_contents)
