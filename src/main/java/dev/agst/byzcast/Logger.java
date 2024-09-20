@@ -41,9 +41,11 @@ public class Logger {
    * Constructs a new logger instance with the specified attributes.
    *
    * @param attrs The attributes to be attached to the logger.
+   * @param enabled Whether the logger is enabled or not.
    */
-  private Logger(List<Attr> attrs) {
+  private Logger(List<Attr> attrs, boolean enabled) {
     this.attrs = attrs;
+    this.enabled = enabled;
   }
 
   /**
@@ -79,7 +81,7 @@ public class Logger {
       childAttrs.add(attr);
     }
 
-    return new Logger(childAttrs);
+    return new Logger(childAttrs, this.enabled);
   }
 
   /**
