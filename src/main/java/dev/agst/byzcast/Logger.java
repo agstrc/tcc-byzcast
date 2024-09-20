@@ -29,6 +29,9 @@ public class Logger {
   /** The inherent attributes of the current logger. */
   private final List<Attr> attrs;
 
+  /** Whether the logger is enabled or not. */
+  private boolean enabled = true;
+
   /** Constructs a new logger instance with no initial attributes. */
   public Logger() {
     this.attrs = new ArrayList<>();
@@ -41,6 +44,26 @@ public class Logger {
    */
   private Logger(List<Attr> attrs) {
     this.attrs = attrs;
+  }
+
+  /**
+   * Disables the logger, preventing it from logging any messages.
+   *
+   * @return The current logger instance.
+   */
+  public Logger disable() {
+    this.enabled = false;
+    return this;
+  }
+
+  /**
+   * Enables the logger, allowing it to log messages.
+   *
+   * @return The current logger instance.
+   */
+  public Logger enable() {
+    this.enabled = true;
+    return this;
   }
 
   /**
@@ -104,6 +127,10 @@ public class Logger {
   }
 
   private void logMessage(String level, String message, Attr... attrs) {
+    if (!this.enabled) {
+      return;
+    }
+
     var now = LocalDateTime.now();
     var nowString = now.format(DateTimeFormatter.ISO_DATE_TIME);
 

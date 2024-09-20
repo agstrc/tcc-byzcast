@@ -28,6 +28,13 @@ public class Main {
       required = true)
   String topologyPath;
 
+  @Option(
+      names = {"--log"},
+      description = "Whether to log messages or not",
+      defaultValue = "true",
+      type = Boolean.class)
+  boolean log;
+
   @Command(name = "server", description = "Starts the server.")
   void server(
       @Option(
@@ -48,6 +55,10 @@ public class Main {
     var configFinder = new GroupConfigFinder(configsPath);
     var info = new ReplicaInfo(groupID, serverID);
     var logger = new Logger().with(new Attr("GID", groupID), new Attr("SID", serverID));
+
+    if (!log) {
+      logger.disable();
+    }
 
     var replicaNode =
         ReplicaNode.builder()
