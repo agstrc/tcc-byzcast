@@ -84,6 +84,8 @@ public class ReplicaReplier implements Replier {
       case ReplicaReply.Completed completed:
         {
           var pendingList = this.pendingRequests.remove(completed.id());
+          // this happens whenever testing with 1 as the minimum receive count
+          if (pendingList == null) pendingList = new ArrayList<>();
           pendingList.add(msg);
 
           pendingList.forEach(
