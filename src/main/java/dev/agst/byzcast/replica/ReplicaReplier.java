@@ -4,9 +4,9 @@ import bftsmart.tom.MessageContext;
 import bftsmart.tom.ReplicaContext;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.server.Replier;
+import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.SerializingException;
-import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.message.Response;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -88,6 +88,8 @@ public class ReplicaReplier implements Replier {
           if (pendingList == null) pendingList = new ArrayList<>();
           pendingList.add(msg);
 
+          System.out.println("REPLIED " + completed.id() + " SIZE " + pendingList.size());
+
           pendingList.forEach(
               pendingMessage -> {
                 // I'm not sure whether the contents required to be cloned, but this is
@@ -108,6 +110,24 @@ public class ReplicaReplier implements Replier {
           break;
         }
     }
+  }
+
+  public void processCompletedReply(ReplicaReply.Completed completed) {
+    var pendingList = this.pendingRequests.remove(completed.id());
+    // this happens whenever testing with 1 as the minimum receive count
+    if (pendingList == null) pendingList = new ArrayList<>();
+
+    System.out.println("REPLIED " + completed.id() + " SIZE " + pendingList.size());
+
+    pendingList.forEach(
+        pendingMessage -> {
+          // I'm not sure whether the contents required to be cloned, but this is
+          // done in case the library modifies the array buffer
+          pendingMessage.reply.setContent(completed.result().clone());
+          replicaContext
+              .getServerCommunicationSystem()
+              .send(new int[] {pendingMessage.getSender()}, pendingMessage.reply);
+        });
   }
 
   @Override

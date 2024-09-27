@@ -1,0 +1,5 @@
+Método para lidar com batch requests:
+- Passar de request em request da batch
+- Se subrequest tá done ou no cache interno -> adiciona na resposta
+- Se subrequest não tá done -> cache interno de subrequests
+- Se todas estão done: -> retornar complete e limpa elas do cache

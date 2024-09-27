@@ -3,9 +3,8 @@ package dev.agst.byzcast.client;
 import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.group.GroupProxies;
-import dev.agst.byzcast.message.Request;
-import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.topology.Topology;
+import dev.agst.byzcast.v2.message.Request;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,11 +43,13 @@ class ClientThread {
       var lca = optionLCA.get();
       var proxy = proxies.forGroup(lca);
 
-      var targetGroupsArray = targetGroups.stream().mapToInt(Integer::intValue).toArray();
-      var request = new Request(UUID.randomUUID(), targetGroupsArray, "req", Request.Source.CLIENT);
+      var request = new Request.Single(UUID.randomUUID(), new ArrayList<>(targetGroups), "req");
 
       var beforeRequest = currenTimeMicros();
       var response = proxy.invokeOrdered(Serializer.toBytes(request));
+      if (response == null) {
+        logger.error("Timed out", new Logger.Attr("RID", request.id()));
+      }
       var afterRequest = currenTimeMicros();
 
       stats.add(new Stat(request.id(), beforeRequest, afterRequest, lca, targetGroups));

@@ -110,6 +110,7 @@ def main() -> None:
                 java_path,
                 "-jar",
                 str(base_dir.joinpath("byzcast-tcc.jar")),
+                "--no-log",
                 "--groups-configs",
                 str(base_dir.joinpath("configs")),
                 "--topology",
