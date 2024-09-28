@@ -2,12 +2,13 @@ package dev.agst.byzcast;
 
 import bftsmart.tom.ServiceReplica;
 import dev.agst.byzcast.Logger.Attr;
-import dev.agst.byzcast.client.BatchTestClient;
+import dev.agst.byzcast.client.BatchClients;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupProxies;
-import dev.agst.byzcast.replica.ReplicaInfo;
-import dev.agst.byzcast.replica.ReplicaNode;
-import dev.agst.byzcast.replica.ReplicaReplier;
+import dev.agst.byzcast.server.RequestHandler;
+import dev.agst.byzcast.server.ServerNode;
+import dev.agst.byzcast.server.ServerReplier;
+import dev.agst.byzcast.server.ServerState;
 import dev.agst.byzcast.topology.Topology;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -53,29 +54,20 @@ public class Main {
 
     var topology = new Topology(topologyPath);
     var configFinder = new GroupConfigFinder(configsPath);
-    var info = new ReplicaInfo(groupID, serverID);
+    var groupProxies = new GroupProxies(configFinder);
     var logger = new Logger().with(new Attr("GID", groupID), new Attr("SID", serverID));
 
     if (!log) {
       logger.disable();
     }
 
-    var replicaNode =
-        ReplicaNode.builder()
-            .withLogger(logger)
-            .withInfo(info)
-            .withConfigFinder(configFinder)
-            .withTopology(topology)
-            .withTargetRequestCount(3)
-            .build();
+    var replier = new ServerReplier();
+    var handler = new RequestHandler(logger, groupID, groupProxies, topology, replier);
+    var state = new ServerState(3);
+    var serverNode = new ServerNode(handler, state);
 
     new ServiceReplica(
-        serverID,
-        configFinder.forGroup(groupID),
-        replicaNode,
-        replicaNode,
-        null,
-        new ReplicaReplier());
+        serverID, configFinder.forGroup(groupID), serverNode, serverNode, null, replier);
 
     // some tests showed that we need to keep the main thread alive
     Thread.sleep(Integer.MAX_VALUE);
@@ -85,10 +77,9 @@ public class Main {
   void client() throws Exception {
     var topology = new Topology(topologyPath);
     var configFinder = new GroupConfigFinder(configsPath);
-    var groupProxies = new GroupProxies(configFinder);
 
-    var client = new BatchTestClient(topology, groupProxies);
-    client.run(8);
+    var batch = new BatchClients(new Logger(), topology, configFinder);
+    batch.withClientCount(1).run();
   }
 
   public static void main(String[] args) {

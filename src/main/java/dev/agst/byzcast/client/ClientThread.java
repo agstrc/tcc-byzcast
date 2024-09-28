@@ -3,8 +3,7 @@ package dev.agst.byzcast.client;
 import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Serializer;
 import dev.agst.byzcast.group.GroupProxies;
-import dev.agst.byzcast.message.Request;
-import dev.agst.byzcast.message.Response;
+import dev.agst.byzcast.message.Request.ClientRequest;
 import dev.agst.byzcast.topology.Topology;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,10 +43,12 @@ class ClientThread {
       var lca = optionLCA.get();
       var proxy = proxies.forGroup(lca);
 
-      var targetGroupsArray = targetGroups.stream().mapToInt(Integer::intValue).toArray();
-      var request = new Request(UUID.randomUUID(), targetGroupsArray, "req", Request.Source.CLIENT);
+      var request = new ClientRequest(UUID.randomUUID(), new ArrayList<>(targetGroups), "a");
+      // var request = new Request(UUID.randomUUID(), targetGroupsArray, "req",
+      // Request.Source.CLIENT);
 
       var beforeRequest = currenTimeMicros();
+      System.out.println("Sending " + request.id());
       var response = proxy.invokeOrdered(Serializer.toBytes(request));
       var afterRequest = currenTimeMicros();
 
