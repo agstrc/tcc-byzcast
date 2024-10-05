@@ -61,7 +61,7 @@ public class Main {
       logger.disable();
     }
 
-    // TODO: parametrize constructor parameters
+    // TODO: parametrize ServerState parameters.
     var serverState = new ServerState(3, 4);
     var replier = new ServerReplier();
     var requestHandler = new RequestHandler(groupID, topology, groupProxies, replier);
@@ -75,16 +75,25 @@ public class Main {
   }
 
   @Command(name = "client", description = "Starts the client.")
-  void client() throws Exception {
+  void client(
+      @Option(
+              names = {"--clients"},
+              description = "The number of client threads to run",
+              defaultValue = "10",
+              type = Integer.class)
+          int clientCount,
+      @Option(
+              names = {"--runtime"},
+              description = "The runtime duration for each client thread in milliseconds",
+              defaultValue = "120000",
+              type = Integer.class)
+          int runtimeMillis)
+      throws Exception {
     var topology = new Topology(topologyPath);
     var configFinder = new GroupConfigFinder(configsPath);
-    // var groupProxies = new GroupProxies(configFinder);
 
     var batch = new BatchClients(new Logger(), topology, configFinder);
-    batch.withClientCount(2).run();
-
-    // var client = new BatchTestClient(topology, groupProxies);
-    // client.run(8);
+    batch.withClientCount(clientCount).withRuntimeMillis(runtimeMillis).run();
   }
 
   public static void main(String[] args) {

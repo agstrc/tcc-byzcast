@@ -4,6 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO, TypeVar
 
+# This script validates whether the ByzCast protocol ensures a consistent message ordering by
+# detecting potential cycles or causal violations across different nodes. It checks if the
+# protocol adheres to the happens-before relation, as introduced by Lamport, ensuring that
+# no cycles exist in the message dependencies between groups. By doing so, it guarantees that messages
+# maintain a globally consistent causal order, preventing any out-of-order delivery or
+# Byzantine faults that could compromise the protocol’s reliability.
+
 T = TypeVar("T")
 
 
@@ -40,7 +47,7 @@ def unordered_common_elements(lst1: list[T], lst2: list[T]) -> tuple[T, T] | Non
 
 
 def parse_log_file(file: TextIO) -> list[str]:
-    exp = re.compile(r"RID=(\w{8}-\w{4}-\w{4}-\w{4}-\w{12}).+Request locally handled")
+    exp = re.compile(r"id=(\w{8}-\w{4}-\w{4}-\w{4}-\w{12}).+Request handled locally")
 
     matches: list[str] = []
     lines = file.readlines()

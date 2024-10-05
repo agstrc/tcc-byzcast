@@ -17,6 +17,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+/**
+ * Manages the execution of multiple client threads in the ByzCast system.
+ *
+ * <p>This class is responsible for creating and running multiple {@link ClientThread} instances,
+ * collecting their statistics, and writing the statistics to files.
+ */
 public class BatchClients {
   private final Logger logger;
   private final Topology topology;
@@ -27,30 +33,55 @@ public class BatchClients {
 
   private String statsDir = ".";
 
-  private final ExecutorService executor =
-      Executors.newThreadPerTaskExecutor(Thread.ofPlatform().factory());
+  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
+  /**
+   * Constructs a new {@code BatchClients} instance with the specified parameters.
+   *
+   * @param logger The logger to use for logging messages.
+   * @param topology The topology of the ByzCast system.
+   * @param configFinder The configuration finder for group proxies.
+   */
   public BatchClients(Logger logger, Topology topology, GroupConfigFinder configFinder) {
     this.logger = logger;
     this.topology = topology;
     this.configFinder = configFinder;
   }
 
+  /**
+   * Sets the number of client threads to run.
+   *
+   * @param clientCount The number of client threads.
+   * @return The current {@code BatchClients} instance.
+   */
   public BatchClients withClientCount(int clientCount) {
     this.clientCount = clientCount;
     return this;
   }
 
+  /**
+   * Sets the runtime duration for the client threads.
+   *
+   * @param runtimeMillis The runtime duration in milliseconds.
+   * @return The current {@code BatchClients} instance.
+   */
   public BatchClients withRuntimeMillis(int runtimeMillis) {
     this.runtimeMillis = runtimeMillis;
     return this;
   }
 
+  /**
+   * Sets the directory for storing statistics files.
+   *
+   * @param statsDir The directory for storing statistics files.
+   * @return The current {@code BatchClients} instance.
+   */
   public BatchClients withStatsDir(String statsDir) {
     this.statsDir = statsDir;
     return this;
   }
 
+  /** Runs the client threads, collects their statistics, and writes the statistics to files. */
   public void run() {
     var random = new Random();
 

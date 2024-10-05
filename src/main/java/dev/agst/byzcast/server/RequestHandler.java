@@ -98,11 +98,19 @@ public class RequestHandler {
 
   private ServerReply computeReply(ReplicaRequest rr, ServerState state) {
     var responses = new ArrayList<AggregatedResponse>();
+
     for (ClientRequest cr : rr.requests()) {
       var response = state.getCachedResponse(cr.id());
       if (response.isEmpty()) {
         var pendingList = pendingRRs.computeIfAbsent(cr.id(), k -> new ArrayList<>());
-        pendingList.add(rr);
+
+        // We only add the request to the pending list if it is not already there.
+        // A huge number of pending requests for a given key is not expected, so the linear search
+        // should be fine.
+        var containsReplicaRequest = pendingList.stream().anyMatch(req -> req.id().equals(rr.id()));
+        if (!containsReplicaRequest) pendingList.add(rr);
+
+        logger.info("Returning pending", new Attr("RRID", rr.id()));
         return new ServerReply.Pending(rr.id());
       }
 
@@ -129,7 +137,7 @@ public class RequestHandler {
     var readyRequests = new ArrayList<ClientRequest>();
 
     for (var request : requests) {
-      logger.info("Requested received", new Attr("request", request));
+      logger.info("Request received", new Attr("request", request));
 
       if (request instanceof ClientRequest) {
         logger.info("Request ready to be handled", new Attr("request", request));
@@ -235,6 +243,8 @@ public class RequestHandler {
 
                   return executor.submit(() -> dispatcher.dispatch(replicaRequest));
                 })
+            .toList() // collect the futures before getting them to avoid blocking
+            .stream()
             .map(
                 future -> {
                   try {
