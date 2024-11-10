@@ -19,6 +19,7 @@ def calculate_average_latency(file_paths):
 
     average_latency = total_latency / total_entries
     print(f"Average Latency: {average_latency:.2f}")
+    print(f"Total Entries: {total_entries}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

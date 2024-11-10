@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -33,7 +34,8 @@ public class BatchClients {
 
   private String statsDir = ".";
 
-  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+  private final ExecutorService executor =
+      Executors.newThreadPerTaskExecutor(Thread.ofPlatform().factory());
 
   /**
    * Constructs a new {@code BatchClients} instance with the specified parameters.
@@ -81,10 +83,24 @@ public class BatchClients {
     return this;
   }
 
-  /** Runs the client threads, collects their statistics, and writes the statistics to files. */
+  /**
+   * Executes the client threads, collects their statistics, and writes the statistics to files.
+   *
+   * <p>This method initializes and starts multiple {@link ClientThread} instances, each responsible
+   * for sending requests and collecting statistics. The client threads are ramped up gradually,
+   * with a random delay between each start, until the desired number of clients is reached. Once
+   * all clients are running, the method waits for the specified runtime duration before signaling
+   * the clients to stop.
+   *
+   * <p>The runtime duration specified by {@code runtimeMillis} sets the duration of the maximum
+   * load, meaning that the total runtime is considered only after all clients have been started.
+   * After the runtime duration elapses, the method collects the statistics from all client threads
+   * and writes them to files in the specified statistics directory.
+   */
   public void run() {
     var random = new Random();
 
+    var stopFlag = new AtomicBoolean(false);
     var futures = new ArrayList<Future<List<Stat>>>();
 
     for (int i = 0; i < clientCount; i++) {
@@ -92,9 +108,8 @@ public class BatchClients {
       var clientLogger = logger.with(new Logger.Attr("clientID", i));
 
       var client = new ClientThread(clientLogger, topology, proxies);
-      client.setRuntimeMillis(runtimeMillis);
 
-      futures.add(executor.submit(client::run));
+      futures.add(executor.submit(() -> client.run(stopFlag)));
 
       // the sleep logic between client starts is copied from the original byzcast
       // implementation.
@@ -104,6 +119,13 @@ public class BatchClients {
         throw new RuntimeException(e);
       }
     }
+
+    try {
+      Thread.sleep(runtimeMillis);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+    stopFlag.set(true);
 
     // collect all stats before writing them
     var clientsStats =

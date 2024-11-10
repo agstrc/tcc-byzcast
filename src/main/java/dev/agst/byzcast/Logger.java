@@ -136,18 +136,6 @@ public class Logger {
     var now = LocalDateTime.now();
     var nowString = now.format(DateTimeFormatter.ISO_DATE_TIME);
 
-    var stackTrace = Thread.currentThread().getStackTrace();
-    var caller = "unknown:0";
-    for (int i = 1; i < stackTrace.length; i++) {
-      var element = stackTrace[i];
-      var callerClass = element.getClassName();
-
-      if (!callerClass.equals(Logger.class.getName())) {
-        caller = element.getClassName() + ":" + element.getLineNumber();
-        break;
-      }
-    }
-
     var finalAttributes =
         Stream.concat(this.attrs.stream(), Arrays.stream(attrs))
             .map(
@@ -160,9 +148,9 @@ public class Logger {
 
     String log;
     if (finalAttributes.isEmpty()) {
-      log = String.format("%s %s %s %s", nowString, caller, level, message);
+      log = String.format("%s %s %s", nowString, level, message);
     } else {
-      log = String.format("%s %s %s %s %s", nowString, caller, level, finalAttributes, message);
+      log = String.format("%s %s %s %s", nowString, level, finalAttributes, message);
     }
     System.out.println(log);
   }

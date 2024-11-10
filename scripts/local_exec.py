@@ -5,10 +5,10 @@ import subprocess
 from pathlib import Path
 
 # TODO: allow for a different number of faulty servers
-topology = [[1, 2], [3, 4]]
+topology = [[1, 2], [], [3]]
 
 group_size = 4
-group_count = 5
+group_count = 4
 
 exec_dir = Path(__file__).parent.joinpath("lexec")
 project_dir = Path(__file__).parent.parent

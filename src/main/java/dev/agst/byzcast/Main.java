@@ -30,11 +30,11 @@ public class Main {
   String topologyPath;
 
   @Option(
-      names = {"--log"},
-      description = "Whether to log messages or not",
-      defaultValue = "true",
+      names = {"--no-logs"},
+      description = "Disable logs",
+      defaultValue = "false",
       type = Boolean.class)
-  boolean log;
+  boolean disableLogs;
 
   @Command(name = "server", description = "Starts the server.")
   void server(
@@ -57,14 +57,14 @@ public class Main {
     var groupProxies = new GroupProxies(configFinder);
     var logger = new Logger().with(new Attr("GID", groupID), new Attr("SID", serverID));
 
-    if (!log) {
+    if (disableLogs) {
       logger.disable();
     }
 
     // TODO: parametrize ServerState parameters.
     var serverState = new ServerState(3, 4);
     var replier = new ServerReplier();
-    var requestHandler = new RequestHandler(groupID, topology, groupProxies, replier);
+    var requestHandler = new RequestHandler(logger, groupID, topology, groupProxies, replier);
     var serverNode = new ServerNode(logger, requestHandler, serverState);
 
     new ServiceReplica(
@@ -92,7 +92,12 @@ public class Main {
     var topology = new Topology(topologyPath);
     var configFinder = new GroupConfigFinder(configsPath);
 
-    var batch = new BatchClients(new Logger(), topology, configFinder);
+    var logger = new Logger();
+    if (disableLogs) {
+      logger.disable();
+    }
+
+    var batch = new BatchClients(logger, topology, configFinder);
     batch.withClientCount(clientCount).withRuntimeMillis(runtimeMillis).run();
   }
 

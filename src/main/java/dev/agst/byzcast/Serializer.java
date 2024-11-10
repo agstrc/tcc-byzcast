@@ -31,8 +31,11 @@ public class Serializer {
       var obj = objectStream.readObject();
       return desiredType.cast(obj);
     } catch (IOException | ClassNotFoundException | ClassCastException e) {
-      throw new SerializingException(
-          String.format("Failed to serialize bytes to type %s", desiredType.getName()), e);
+      var exception =
+          new SerializingException(
+              String.format("Failed to serialize bytes to type %s", desiredType.getName()), e);
+      exception.addSuppressed(e);
+      throw exception;
     }
   }
 
@@ -54,8 +57,6 @@ public class Serializer {
       objectStream.flush();
       return bytesStream.toByteArray();
     } catch (IOException e) {
-      // given that we are writing to a byte array, this should never happen
-
       // we are writing to a byte array, so in general this should not happen. But as documented
       // in the ObjectOutputStream class, it can happen if the object being serialized is not
       // serializable.

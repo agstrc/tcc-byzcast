@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Represents a client thread that sends requests to the ByzCast system.
@@ -23,17 +24,6 @@ class ClientThread {
   private final Logger logger;
   private final Topology topology;
   private final GroupProxies proxies;
-
-  private int runtimeMillis = 120_000;
-
-  /**
-   * Sets the runtime duration for the client thread.
-   *
-   * @param runtimeMillis The runtime duration in milliseconds.
-   */
-  public void setRuntimeMillis(int runtimeMillis) {
-    this.runtimeMillis = runtimeMillis;
-  }
 
   /**
    * Constructs a new {@code ClientThread} with the specified parameters.
@@ -51,37 +41,39 @@ class ClientThread {
   /**
    * Runs the client thread, sending requests and collecting statistics.
    *
+   * @param stopFlag An {@link AtomicBoolean} flag used to signal the thread to stop.
    * @return A list of {@link Stat} objects representing the statistics of the requests and
    *     responses.
    */
-  public List<Stat> run() {
-    var startTime = System.currentTimeMillis();
+  public List<Stat> run(AtomicBoolean stopFlag) {
+    logger.info("Client started");
+
+    var targetGroups = selectTargets();
+    var optionLCA = topology.findLCA(targetGroups);
+    if (optionLCA.isEmpty()) {
+      logger.error("No LCA found for groups: " + targetGroups);
+      throw new RuntimeException("No LCA found for groups: " + targetGroups);
+    }
+
+    var lca = optionLCA.get();
+    var proxy = proxies.forGroup(lca);
+
     var stats = new ArrayList<Stat>();
 
-    logger.info("Client started");
-    while (System.currentTimeMillis() - startTime < runtimeMillis) {
-      var targetGroups = selectTargets();
-      var optionLCA = topology.findLCA(targetGroups);
-      if (optionLCA.isEmpty()) {
-        logger.error("No LCA found for groups: " + targetGroups);
-        continue;
-      }
-
-      var lca = optionLCA.get();
-      var proxy = proxies.forGroup(lca);
-
+    while (!stopFlag.get()) {
       var request = new ClientRequest(UUID.randomUUID(), new ArrayList<>(targetGroups), "req");
 
       var beforeRequest = currenTimeMicros();
       var response = proxy.invokeOrdered(Serializer.toBytes(request));
       var afterRequest = currenTimeMicros();
 
-      stats.add(new Stat(request.id(), beforeRequest, afterRequest, lca, targetGroups));
-
       if (response == null) {
-        logger.error("Request timed out", new Attr("RID", request.id()));
-        throw new RuntimeException("Request timed out");
+        // usually means a timeout, but the bft-smart lib usually logs the actual issue
+        logger.error("Request failed", new Attr("RID", request.id()));
+        continue;
       }
+
+      stats.add(new Stat(request.id(), beforeRequest, afterRequest, lca, targetGroups));
 
       try {
         Serializer.fromBytes(response, Response.class);

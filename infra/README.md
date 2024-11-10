@@ -1,7 +1,8 @@
 # infra
 
 This directory contains an ad-hoc Ansible automation for deploying ByzCast within
-a [CloudLab](https://www.cloudlab.us) cluster.
+a [CloudLab](https://www.cloudlab.us) cluster. As of now, the client is manually
+deployed on one of the nodes.
 
 ## Usage
 

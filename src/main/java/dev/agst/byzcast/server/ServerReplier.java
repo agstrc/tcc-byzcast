@@ -19,6 +19,20 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Handles the replies for the server within the ByzCast protocol.
+ *
+ * <p>The {@code ServerReplier} class implements the {@link Replier} interface and manages the
+ * replies to client requests. It ensures that replies are sent only after the requests have been
+ * fully processed. This class works in conjunction with the {@link ServerReply} interface to
+ * facilitate deferred replies, ensuring that requests are processed within the constraints of the
+ * bft-smart library, but also allowing for replies to be sent once due processing is complete.
+ *
+ * <p>The {@code ServerReplier} maintains a map of pending requests and uses a lock mechanism to
+ * wait for the {@link ReplicaContext} to be set before processing replies. It handles both
+ * completed and pending replies, sending the appropriate response to the client once processing is
+ * complete.
+ */
 public class ServerReplier implements Replier {
   private final Logger logger = new Logger();
 
@@ -29,6 +43,16 @@ public class ServerReplier implements Replier {
 
   private final Map<UUID, List<TOMMessage>> pending = new TreeMap<>();
 
+  /**
+   * Manages the reply for a given TOMMessage.
+   *
+   * <p>This method deserializes the reply content and determines whether the reply is completed or
+   * pending. If the reply is pending, it adds the message to the pending list. If the reply is
+   * completed, it sends the reply to the client.
+   *
+   * @param msg the TOMMessage containing the reply
+   * @param ctx the MessageContext associated with the message
+   */
   @Override
   public void manageReply(TOMMessage msg, MessageContext ctx) {
     waitForContext();
@@ -62,6 +86,15 @@ public class ServerReplier implements Replier {
     }
   }
 
+  /**
+   * Sends a reply for a pending request.
+   *
+   * <p>This method retrieves the list of pending messages for the given request ID and sends the
+   * reply data to the client. If no pending messages are found for the given ID, it logs an error.
+   *
+   * @param id the unique identifier of the request
+   * @param data the reply data to be sent
+   */
   public void sendReply(UUID id, byte[] data) {
     waitForContext();
 
@@ -80,6 +113,12 @@ public class ServerReplier implements Replier {
         });
   }
 
+  /**
+   * Waits for the {@link ReplicaContext} to be set.
+   *
+   * <p>This method uses a lock and condition to wait until the {@code ReplicaContext} is set,
+   * ensuring that the context is available before processing replies.
+   */
   private void waitForContext() {
     while (this.replicaContext == null) {
       try {
@@ -92,6 +131,14 @@ public class ServerReplier implements Replier {
     }
   }
 
+  /**
+   * Sets the {@link ReplicaContext} for this replier.
+   *
+   * <p>This method sets the {@code ReplicaContext} and signals all waiting threads that the context
+   * is now available.
+   *
+   * @param rc the ReplicaContext to be set
+   */
   @Override
   public void setReplicaContext(ReplicaContext rc) {
     replyLock.lock();

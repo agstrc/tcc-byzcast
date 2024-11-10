@@ -32,13 +32,13 @@ public class RequestHandler {
 
   private final ServerReplier replier;
 
-  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+  private final ExecutorService executor = Executors.newCachedThreadPool();
 
   private final TreeMap<UUID, ArrayList<ReplicaRequest>> pendingRRs = new TreeMap<>();
 
   public RequestHandler(
-      int groupID, Topology topology, GroupProxies proxies, ServerReplier replier) {
-    this.logger = new Logger();
+      Logger logger, int groupID, Topology topology, GroupProxies proxies, ServerReplier replier) {
+    this.logger = logger;
     this.groupID = groupID;
     this.topology = topology;
     this.proxies = proxies;
@@ -110,7 +110,6 @@ public class RequestHandler {
         var containsReplicaRequest = pendingList.stream().anyMatch(req -> req.id().equals(rr.id()));
         if (!containsReplicaRequest) pendingList.add(rr);
 
-        logger.info("Returning pending", new Attr("RRID", rr.id()));
         return new ServerReply.Pending(rr.id());
       }
 
@@ -119,6 +118,7 @@ public class RequestHandler {
 
     var batchResponse = new BatchResponse(responses);
     var reply = new ServerReply.Done(Serializer.toBytes(batchResponse));
+
     rr.requests().forEach(cr -> state.increaseReturnCount(cr.id()));
 
     return reply;
@@ -241,7 +241,21 @@ public class RequestHandler {
                   var dispatcher = new RequestDispatcher(proxy);
                   logger.info("Forwarding request", new Attr("request", replicaRequest));
 
-                  return executor.submit(() -> dispatcher.dispatch(replicaRequest));
+                  return executor.submit(
+                      () -> {
+                        try {
+                          return dispatcher.dispatch(replicaRequest);
+                        } catch (Exception e) {
+                          var message =
+                              String.format(
+                                  "Replica request failed. ID=%s. Request=%s",
+                                  replicaRequest.id().toString(), replicaRequest.toString());
+                          var contextualException = new Exception(message);
+
+                          contextualException.addSuppressed(e);
+                          throw contextualException;
+                        }
+                      });
                 })
             .toList() // collect the futures before getting them to avoid blocking
             .stream()
@@ -273,8 +287,8 @@ public class RequestHandler {
         var individualResponse = batchResponse.responses().get(j);
         var individualRequest = batchRequest.requests().get(j);
 
-        var localResponse = responses.get(individualRequest);
-        localResponse
+        responses
+            .get(individualRequest)
             .downstreamResponses()
             .add(new GroupResponse(requestGroup, individualResponse));
       }
