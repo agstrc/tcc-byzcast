@@ -5,8 +5,11 @@ import bftsmart.tom.server.defaultservices.DefaultRecoverable;
 import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.Logger.Attr;
 import dev.agst.byzcast.Serializer;
+import dev.agst.byzcast.SerializingException;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
+import dev.agst.byzcast.message.TopologyUpdateRequest;
+import dev.agst.byzcast.topology.TopologyManager;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -20,6 +23,7 @@ import java.util.Arrays;
  *   <li>Serializing requests to be processed by the system.
  *   <li>Deserializing responses for the clients.
  *   <li>Forwarding the logical handling of requests to the {@code RequestHandler} class.
+ *   <li>Handling topology update requests via BFT-SMaRT consensus.
  *   <li>Ensuring that requests and responses are well integrated with {@code ReplicaReplier} for
  *       reliable communication.
  * </ul>
@@ -30,13 +34,16 @@ import java.util.Arrays;
 public class ReplicaNode extends DefaultRecoverable {
   private final Logger logger;
   private final RequestHandler handler;
+  private final TopologyManager topologyManager;
 
   private ReplicaState state;
 
-  public ReplicaNode(Logger logger, RequestHandler handler, ReplicaState state) {
+  public ReplicaNode(
+      Logger logger, RequestHandler handler, ReplicaState state, TopologyManager topologyManager) {
     this.logger = logger;
     this.handler = handler;
     this.state = state;
+    this.topologyManager = topologyManager;
   }
 
   /**
@@ -53,8 +60,16 @@ public class ReplicaNode extends DefaultRecoverable {
   }
 
   private byte[] appExecuteSingle(byte[] cmd) {
-    Request request;
+    // First, try to deserialize as TopologyUpdateRequest
+    try {
+      var topologyUpdate = Serializer.fromBytes(cmd, TopologyUpdateRequest.class);
+      return handleTopologyUpdate(topologyUpdate);
+    } catch (SerializingException e) {
+      // Not a TopologyUpdateRequest, try as regular Request
+    }
 
+    // Try to deserialize as regular Request
+    Request request;
     try {
       request = Serializer.fromBytes(cmd, Request.class);
     } catch (Exception e) {
@@ -74,6 +89,31 @@ public class ReplicaNode extends DefaultRecoverable {
       var response = new Response("INTERNAL_ERROR", new ArrayList<>());
       var errorReply = new ReplicaReply.Raw(Serializer.toBytes(response));
       return Serializer.toBytes(errorReply);
+    }
+  }
+
+  /**
+   * Handles a topology update request by updating the TopologyManager.
+   *
+   * @param updateRequest The topology update request.
+   * @return The serialized ReplicaReply containing the response.
+   */
+  private byte[] handleTopologyUpdate(TopologyUpdateRequest updateRequest) {
+    logger.info("Processing topology update request", new Attr("requestId", updateRequest.id()));
+
+    try {
+      topologyManager.updateTopology(updateRequest.topology());
+      logger.info("Topology updated successfully", new Attr("requestId", updateRequest.id()));
+
+      var response = new Response("TOPOLOGY_UPDATED", new ArrayList<>());
+      var reply = new ReplicaReply.Raw(Serializer.toBytes(response));
+      return Serializer.toBytes(reply);
+    } catch (Exception e) {
+      logger.error("Failed to update topology", e, new Attr("requestId", updateRequest.id()));
+
+      var response = new Response("TOPOLOGY_UPDATE_FAILED: " + e.getMessage(), new ArrayList<>());
+      var reply = new ReplicaReply.Raw(Serializer.toBytes(response));
+      return Serializer.toBytes(reply);
     }
   }
 

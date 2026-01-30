@@ -3,7 +3,7 @@ package dev.agst.byzcast.replica;
 import dev.agst.byzcast.Logger;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupProxies;
-import dev.agst.byzcast.topology.Topology;
+import dev.agst.byzcast.topology.TopologyManager;
 
 /**
  * A builder class for creating instances of {@link ReplicaNode}. This class facilitates the
@@ -27,11 +27,11 @@ public class ReplicaNodeBuilderFactory {
   }
 
   public static interface ConfigFinderConfigurartor {
-    TopologyConfigurator withConfigFinder(GroupConfigFinder configFinder);
+    TopologyManagerConfigurator withConfigFinder(GroupConfigFinder configFinder);
   }
 
-  public static interface TopologyConfigurator {
-    RequestCountConfigurator withTopology(Topology topology);
+  public static interface TopologyManagerConfigurator {
+    RequestCountConfigurator withTopologyManager(TopologyManager topologyManager);
   }
 
   public static interface RequestCountConfigurator {
@@ -46,7 +46,7 @@ public class ReplicaNodeBuilderFactory {
       extends LoggerConfigurator,
           InfoConfigurator,
           ConfigFinderConfigurartor,
-          TopologyConfigurator,
+          TopologyManagerConfigurator,
           RequestCountConfigurator,
           Buildable {}
 
@@ -64,7 +64,7 @@ public class ReplicaNodeBuilderFactory {
    *     .withLogger(new Logger())
    *     .withInfo(new ReplicaInfo())
    *     .withConfigFinder(new GroupConfigFinder())
-   *     .withTopology(new Topology())
+   *     .withTopologyManager(new TopologyManager(topology))
    *     .withTargetRequestCount(3)
    *     .build();
    * </pre>
@@ -73,7 +73,7 @@ public class ReplicaNodeBuilderFactory {
     private Logger logger;
     private ReplicaInfo info;
     private GroupProxies proxies;
-    private Topology topology;
+    private TopologyManager topologyManager;
     private int targetRequestCount;
 
     @Override
@@ -89,14 +89,14 @@ public class ReplicaNodeBuilderFactory {
     }
 
     @Override
-    public TopologyConfigurator withConfigFinder(GroupConfigFinder configFinder) {
+    public TopologyManagerConfigurator withConfigFinder(GroupConfigFinder configFinder) {
       this.proxies = new GroupProxies(configFinder);
       return this;
     }
 
     @Override
-    public RequestCountConfigurator withTopology(Topology topology) {
-      this.topology = topology;
+    public RequestCountConfigurator withTopologyManager(TopologyManager topologyManager) {
+      this.topologyManager = topologyManager;
       return this;
     }
 
@@ -108,9 +108,9 @@ public class ReplicaNodeBuilderFactory {
 
     @Override
     public ReplicaNode build() {
-      var requestHandler = new RequestHandler(logger, info, proxies, topology);
+      var requestHandler = new RequestHandler(logger, info, proxies, topologyManager);
       var state = new ReplicaState(targetRequestCount);
-      var replicaNode = new ReplicaNode(logger, requestHandler, state);
+      var replicaNode = new ReplicaNode(logger, requestHandler, state, topologyManager);
 
       return replicaNode;
     }

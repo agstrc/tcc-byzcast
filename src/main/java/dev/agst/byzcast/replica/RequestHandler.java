@@ -8,7 +8,8 @@ import dev.agst.byzcast.group.GroupProxies;
 import dev.agst.byzcast.message.Request;
 import dev.agst.byzcast.message.Response;
 import dev.agst.byzcast.message.Response.GroupResponse;
-import dev.agst.byzcast.topology.Topology;
+import dev.agst.byzcast.topology.TopologyManager;
+import dev.agst.byzcast.topology.TopologyState;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +26,9 @@ import java.util.stream.Collectors;
  * request readiness for processing and the delegation of requests to other nodes as necessary. This
  * class collaborates closely with {@link ReplicaNode} and {@link ReplicaReplier} to ensure
  * efficient and accurate request handling.
+ *
+ * <p>The handler checks the topology state before processing requests. If the topology is being
+ * updated, requests are rejected with a TOPOLOGY_UPDATING response.
  */
 public class RequestHandler {
   private final Logger logger;
@@ -32,16 +36,17 @@ public class RequestHandler {
   private final ReplicaInfo info;
 
   private final GroupProxies proxies;
-  private final Topology topology;
+  private final TopologyManager topologyManager;
 
   /** The executor responsible for async requests sent upstream */
   private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-  public RequestHandler(Logger logger, ReplicaInfo info, GroupProxies proxies, Topology topology) {
+  public RequestHandler(
+      Logger logger, ReplicaInfo info, GroupProxies proxies, TopologyManager topologyManager) {
     this.logger = logger;
     this.info = info;
     this.proxies = proxies;
-    this.topology = topology;
+    this.topologyManager = topologyManager;
   }
 
   /**
@@ -51,6 +56,9 @@ public class RequestHandler {
    * based on its readiness. This method logs the request handling process and returns a {@link
    * ReplicaReply} indicating the outcome.
    *
+   * <p>Before processing, this method checks if the topology is ready. If the topology is being
+   * updated or in an error state, the request is rejected with an appropriate response.
+   *
    * @param request The {@link Request} object representing the incoming request.
    * @param state The current {@link ReplicaState} of the node, used for managing request states and
    *     caching.
@@ -59,6 +67,16 @@ public class RequestHandler {
    */
   public ReplicaReply handle(Request request, ReplicaState state) {
     var logger = this.logger.with(new Attr("RID", request.id()));
+
+    // Check topology state before processing
+    var topologyState = topologyManager.getState();
+    if (topologyState != TopologyState.READY) {
+      var responseContent =
+          topologyState == TopologyState.UPDATING ? "TOPOLOGY_UPDATING" : "TOPOLOGY_ERROR";
+      logger.info("Request rejected due to topology state", new Attr("state", topologyState));
+      var response = new Response(responseContent, new ArrayList<>());
+      return new ReplicaReply.Raw(Serializer.toBytes(response));
+    }
 
     if (request.source() == Request.Source.CLIENT) {
       logger.info("Request is client request");
@@ -117,7 +135,8 @@ public class RequestHandler {
       return new Response(responseContent, new ArrayList<>());
     }
 
-    var optNextGroups = this.topology.findPaths(this.info.groupID(), targetGroups);
+    var topology = topologyManager.getTopology();
+    var optNextGroups = topology.findPaths(this.info.groupID(), targetGroups);
     if (optNextGroups.isEmpty()) {
       logger.error("No path found to target groups");
       return new Response("NO_PATH", new ArrayList<>());

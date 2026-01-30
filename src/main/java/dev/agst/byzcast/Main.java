@@ -1,7 +1,9 @@
 package dev.agst.byzcast;
 
+import bftsmart.tom.ServiceProxy;
 import bftsmart.tom.ServiceReplica;
 import dev.agst.byzcast.Logger.Attr;
+import dev.agst.byzcast.api.TopologyHttpServer;
 import dev.agst.byzcast.client.BatchTestClient;
 import dev.agst.byzcast.group.GroupConfigFinder;
 import dev.agst.byzcast.group.GroupProxies;
@@ -9,6 +11,8 @@ import dev.agst.byzcast.replica.ReplicaInfo;
 import dev.agst.byzcast.replica.ReplicaNode;
 import dev.agst.byzcast.replica.ReplicaReplier;
 import dev.agst.byzcast.topology.Topology;
+import dev.agst.byzcast.topology.TopologyManager;
+import java.util.Random;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -41,10 +45,19 @@ public class Main {
               description = "The group ID",
               type = Integer.class,
               required = true)
-          Integer groupID)
+          Integer groupID,
+      @Option(
+              names = {"--http-port"},
+              description =
+                  "Optional HTTP port for topology update endpoint. If specified, this replica "
+                      + "will expose a POST /topology endpoint for dynamic topology updates.",
+              type = Integer.class,
+              required = false)
+          Integer httpPort)
       throws Exception {
 
     var topology = new Topology(topologyPath);
+    var topologyManager = new TopologyManager(topology);
     var configFinder = new GroupConfigFinder(configsPath);
     var info = new ReplicaInfo(groupID, serverID);
     var logger = new Logger().with(new Attr("GID", groupID), new Attr("SID", serverID));
@@ -54,7 +67,7 @@ public class Main {
             .withLogger(logger)
             .withInfo(info)
             .withConfigFinder(configFinder)
-            .withTopology(topology)
+            .withTopologyManager(topologyManager)
             .withTargetRequestCount(3)
             .build();
 
@@ -65,6 +78,15 @@ public class Main {
         replicaNode,
         null,
         new ReplicaReplier());
+
+    // Start HTTP server for topology updates if port is specified
+    if (httpPort != null) {
+      var clientID = new Random().nextInt(Integer.MAX_VALUE);
+      var proxy = new ServiceProxy(clientID, configFinder.forGroup(groupID));
+      var httpServer = new TopologyHttpServer(httpPort, proxy, logger);
+      httpServer.start();
+      logger.info("Topology update endpoint available", new Attr("httpPort", httpPort));
+    }
 
     // some tests showed that we need to keep the main thread alive
     Thread.sleep(Integer.MAX_VALUE);

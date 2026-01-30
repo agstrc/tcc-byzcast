@@ -25,7 +25,7 @@ import java.util.List;
  *
  * @see Group
  */
-class TopologyLoader {
+public class TopologyLoader {
   /**
    * Loads the network topology from a JSON file and constructs a {@code Group} hierarchy.
    *
@@ -63,30 +63,66 @@ class TopologyLoader {
 
     try (var reader = new FileReader(path)) {
       List<List<Integer>> groups = gson.fromJson(reader, type);
-
-      var rootGroup = new Group(0, new ArrayList<>());
-      var idToGroup = new HashMap<Integer, Group>();
-      idToGroup.put(0, rootGroup);
-
-      for (int currentGroupID = 0; currentGroupID < groups.size(); currentGroupID++) {
-        var group =
-            idToGroup.computeIfAbsent(currentGroupID, (id) -> new Group(id, new ArrayList<>()));
-
-        for (var childID : groups.get(currentGroupID)) {
-          if (childID <= currentGroupID) {
-            var error =
-                String.format(
-                    "Group %d attempted to have ancestor %d as child", currentGroupID, childID);
-            throw new Exception(error);
-          }
-
-          var childGroup =
-              idToGroup.computeIfAbsent(childID, (id) -> new Group(id, new ArrayList<>()));
-          group.children().add(childGroup);
-        }
-      }
-
-      return rootGroup;
+      return buildFromList(groups);
     }
+  }
+
+  /**
+   * Builds a {@code Group} hierarchy from a list of lists representation.
+   *
+   * <p>This method takes a list of lists where each inner list contains the children group IDs for
+   * the group at that index. It constructs and returns the root {@code Group} of the hierarchy.
+   *
+   * <p>Example input:
+   *
+   * <pre>{@code
+   * [
+   *   [1, 2], // Group 0 has children 1 and 2
+   *   [3],    // Group 1 has child 3
+   *   [],     // Group 2 has no children
+   *   []      // Group 3 has no children
+   * ]
+   * }</pre>
+   *
+   * <p>This method validates that:
+   *
+   * <ul>
+   *   <li>The input list is not null or empty
+   *   <li>No circular dependencies exist (a group cannot have an ancestor as a child)
+   * </ul>
+   *
+   * @param groups The topology configuration as a list of lists.
+   * @return The root {@code Group} of the constructed hierarchy.
+   * @throws IllegalArgumentException If the input is null or empty.
+   * @throws Exception If the structure implies a circular dependency.
+   */
+  public static Group buildFromList(List<List<Integer>> groups) throws Exception {
+    if (groups == null || groups.isEmpty()) {
+      throw new IllegalArgumentException("Topology groups list cannot be null or empty");
+    }
+
+    var rootGroup = new Group(0, new ArrayList<>());
+    var idToGroup = new HashMap<Integer, Group>();
+    idToGroup.put(0, rootGroup);
+
+    for (int currentGroupID = 0; currentGroupID < groups.size(); currentGroupID++) {
+      var group =
+          idToGroup.computeIfAbsent(currentGroupID, (id) -> new Group(id, new ArrayList<>()));
+
+      for (var childID : groups.get(currentGroupID)) {
+        if (childID <= currentGroupID) {
+          var error =
+              String.format(
+                  "Group %d attempted to have ancestor %d as child", currentGroupID, childID);
+          throw new Exception(error);
+        }
+
+        var childGroup =
+            idToGroup.computeIfAbsent(childID, (id) -> new Group(id, new ArrayList<>()));
+        group.children().add(childGroup);
+      }
+    }
+
+    return rootGroup;
   }
 }
